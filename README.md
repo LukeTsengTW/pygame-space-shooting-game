@@ -65,6 +65,41 @@ select:
 .\.venv\Scripts\python.exe
 ```
 
+# Build a Windows Executable (.exe)
+
+The game can be packaged into a standalone Windows executable with
+[PyInstaller](https://pyinstaller.org/), so it can be run on machines without
+Python or Pygame installed.
+
+Install the build tools into the project virtual environment (Pillow is used to
+generate the executable's icon):
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install pyinstaller pillow
+```
+
+Build using the bundled spec file:
+
+```powershell
+.\.venv\Scripts\pyinstaller.exe space_shooter.spec --noconfirm
+```
+
+The result is written to `dist\SpaceShooter\`. To run the game, double-click
+`dist\SpaceShooter\SpaceShooter.exe`. To share the game, copy the **entire**
+`dist\SpaceShooter` folder — the `SpaceShooter.exe` needs the `_internal` folder
+next to it.
+
+Notes:
+
+- The build is configured as a folder (`onedir`) and windowed (no console
+  window). These options live in `space_shooter.spec`.
+- All game assets (`img/`, `music/`, `sound_effect/`, `font.ttf`, `icon.png`)
+  are bundled automatically. `pyinstaller_runtime_hook.py` points the working
+  directory at the bundled assets at startup so the game's relative asset paths
+  keep working inside the executable.
+- The `build\` and `dist\` folders are generated output and are excluded from
+  version control via `.gitignore`.
+
 # Control
 
 Using your mouse or keyboard (you need go to setting UI to change these) : `← → ↑ ↓` to control the character.
