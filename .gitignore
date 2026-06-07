@@ -8,6 +8,7 @@ __pycache__/
 venv/
 env/
 ENV/
+.worktrees/
 
 # Test, coverage, and type-checking caches
 .pytest_cache/
