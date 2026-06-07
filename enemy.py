@@ -9,7 +9,7 @@ class Enemy(pygame.sprite.Sprite):
         original_image = pygame.image.load(image_path).convert_alpha()
         self.mask = pygame.mask.from_surface(original_image)
         self.surf = pygame.transform.scale(original_image, scale) if scale else original_image
-        self.rect = self.surf.get_rect(center = (random.randint(15, SCREEN_WIDTH-15), 0))
+        self.rect = self.surf.get_rect(midtop=(random.randint(15, SCREEN_WIDTH-15), GAMEPLAY_TOP))
         self.shield_index = 0 
         if shield_image_path:
             original_image = pygame.image.load(f'{shield_image_path}1.png').convert_alpha()
@@ -269,7 +269,7 @@ class Boss_1(Enemy):
         super().__init__('img/enemy/lv1_to_5/base/Battlecruiser_assets/Battlecruiser_frame_1.png', None, None, (108,132), 2, enemy_hp["enemies_5"])
         self.show_warning = False
         #self.warning_image = pygame.image.load('.png').convert_alpha()
-        self.rect.midtop = (SCREEN_WIDTH / 2, 0) 
+        self.rect.midtop = (SCREEN_WIDTH / 2, GAMEPLAY_TOP)
         self.attack_timer = pygame.time.get_ticks()
         self.laser_cooldown = 15000  
         self.laser_charging_duration = 2000 
@@ -338,7 +338,7 @@ class Boss_2(Enemy):
     def __init__(self):
         super().__init__('img/enemy/lv6_to_10/base/Dreadnought_assets/Dreadnought_frame_1.png', None, None, (102,147), 2, enemy_hp["enemies_11"])
         self.original_image = pygame.image.load('img/enemy/lv6_to_10/base/Dreadnought_assets/Dreadnought_frame_1.png').convert_alpha()
-        self.rect.midtop = (0, 0) 
+        self.rect.midtop = (0, GAMEPLAY_TOP)
         self.laser_cooldown = 2000  
         self.laser_charging = False
         self.laser_firing = False
@@ -404,11 +404,14 @@ class Boss_2(Enemy):
                 self.rect.move_ip(-self.speed, 0)
                 self.surf = self.rotated_images[self.direction]
         elif self.move_phase == 3:  # Moving up
-            if self.rect.top <= 0:
+            if self.rect.top <= GAMEPLAY_TOP:
+                self.rect.top = GAMEPLAY_TOP
                 self.move_phase = 0
                 self.direction = 1
             else:
                 self.rect.move_ip(0, -self.speed)
+                if self.rect.top < GAMEPLAY_TOP:
+                    self.rect.top = GAMEPLAY_TOP
                 self.surf = self.rotated_images[self.direction]
 
     def fire_laser(self):
@@ -473,7 +476,7 @@ class Boss_3(Enemy):
     def __init__(self):
         super().__init__('img/enemy/lv11_to_15/base/Dreadnought_assets/Dreadnought_frame_1.png', None, None, None, 2, enemy_hp["enemies_18"])
         self.original_image = pygame.image.load('img/enemy/lv11_to_15/base/Dreadnought_assets/Dreadnought_frame_1.png').convert_alpha()
-        self.rect.midtop = (0, 0) 
+        self.rect.midtop = (0, GAMEPLAY_TOP)
         self.laser_cooldown = 2000  
         self.laser_charging = False
         self.laser_firing = False
@@ -541,7 +544,7 @@ class Boss_3(Enemy):
 
             if self.condition_met_time > 0 and pygame.time.get_ticks() - self.condition_met_time >= 1000:
                 self.scatter_skill_active = False
-                self.rect.midtop = (0, 0)  # move back to edge
+                self.rect.midtop = (0, GAMEPLAY_TOP)  # move back to edge
                 self.scatter_skill_timer = pygame.time.get_ticks()  # reset cooldown timer
                 self.condition_met_time = 0  # reset the condition met time
 
@@ -569,11 +572,14 @@ class Boss_3(Enemy):
                     self.rect.move_ip(-self.speed, 0)
                     self.surf = self.rotated_images[self.direction]
             elif self.move_phase == 3:  # Moving up
-                if self.rect.top <= 0:
+                if self.rect.top <= GAMEPLAY_TOP:
+                    self.rect.top = GAMEPLAY_TOP
                     self.move_phase = 0
                     self.direction = 1
                 else:
                     self.rect.move_ip(0, -self.speed)
+                    if self.rect.top < GAMEPLAY_TOP:
+                        self.rect.top = GAMEPLAY_TOP
                     self.surf = self.rotated_images[self.direction]
 
     def fire_laser(self):

@@ -2,6 +2,8 @@ from functools import lru_cache
 
 import pygame
 
+from config import BOSS_BAR_HEIGHT, GAMEPLAY_TOP, HUD_HEIGHT
+
 
 COLORS = {
     "navy": (5, 12, 23),
@@ -54,14 +56,14 @@ def level_grid_rects(screen_width, screen_height):
 
 
 def gameplay_hud_rects(screen_width):
-    widths = (106, 132, 106, 132)
-    gap = 8
+    widths = (94, 124, 94, 124)
+    gap = 6
     total_width = sum(widths) + gap * (len(widths) - 1)
     x = (screen_width - total_width) // 2
     rects = []
 
     for width in widths:
-        rects.append(pygame.Rect(x, 14, width, 62))
+        rects.append(pygame.Rect(x, 8, width, HUD_HEIGHT - 16))
         x += width + gap
 
     return rects
@@ -206,24 +208,24 @@ def draw_stat_card(surface, rect, label, value, *, accent=None):
     pygame.draw.line(
         surface,
         accent,
-        (rect.left + 1, rect.top + 10),
+        (rect.left + 1, rect.top + 7),
         (rect.left + 1, rect.bottom - 2),
         3,
     )
     draw_text(
         surface,
         label.upper(),
-        12,
+        10,
         COLORS["muted"],
-        (rect.left + 12, rect.top + 17),
+        (rect.left + 12, rect.top + 11),
         anchor="midleft",
     )
     draw_text(
         surface,
         value,
-        21,
+        18,
         accent if label.lower() == "coin" else COLORS["text"],
-        (rect.left + 12, rect.bottom - 17),
+        (rect.left + 12, rect.bottom - 12),
         anchor="midleft",
     )
     return rect
@@ -240,6 +242,72 @@ def draw_gameplay_hud(surface, level, score, lives, coin):
     for rect, (label, value, accent) in zip(rects, values):
         draw_stat_card(surface, rect, label, value, accent=accent)
     return rects
+
+
+def boss_health_bar_rect(screen_width):
+    width = min(screen_width - 42, 540)
+    return pygame.Rect((screen_width - width) // 2, HUD_HEIGHT, width, BOSS_BAR_HEIGHT)
+
+
+def boss_health_color(ratio):
+    ratio = max(0.0, min(1.0, ratio))
+    if ratio < 0.2:
+        return COLORS["danger"]
+    if ratio < 0.6:
+        return COLORS["gold"]
+    return COLORS["cyan"]
+
+
+def draw_boss_health_bar(surface, name, current, maximum, delayed_ratio=0.0):
+    from boss_health import health_ratio
+
+    ratio = health_ratio(current, maximum)
+    delayed_ratio = max(ratio, min(1.0, delayed_ratio))
+    rect = boss_health_bar_rect(surface.get_width())
+    draw_panel(surface, rect, alpha=210, cut=7, border=COLORS["danger"], border_width=1)
+
+    draw_text(
+        surface,
+        name,
+        13,
+        COLORS["text"],
+        (rect.left + 14, rect.centery),
+        anchor="midleft",
+    )
+    draw_text(
+        surface,
+        f"{round(ratio * 100):03d}%",
+        13,
+        COLORS["danger_hover"],
+        (rect.right - 14, rect.centery),
+        anchor="midright",
+    )
+
+    track = pygame.Rect(rect.left + 150, rect.top + 10, rect.width - 220, 10)
+    pygame.draw.rect(surface, COLORS["track"], track, border_radius=track.height // 2)
+
+    if delayed_ratio > ratio:
+        delayed = track.copy()
+        delayed.width = round(track.width * delayed_ratio)
+        pygame.draw.rect(
+            surface,
+            COLORS["danger_hover"],
+            delayed,
+            border_radius=track.height // 2,
+        )
+
+    if ratio > 0:
+        fill = track.copy()
+        fill.width = max(2, round(track.width * ratio))
+        pygame.draw.rect(
+            surface,
+            boss_health_color(ratio),
+            fill,
+            border_radius=track.height // 2,
+        )
+
+    pygame.draw.rect(surface, COLORS["border"], track, 2, border_radius=track.height // 2)
+    return rect
 
 
 def draw_slider(surface, rect, value):

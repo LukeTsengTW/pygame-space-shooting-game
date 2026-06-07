@@ -2,6 +2,7 @@ import sys
 import random
 from itertools import chain
 from background import ScrollingBackground
+from boss_health import BossHealthDisplayState
 from config import *
 from enemy import Enemy, Enemy_1, Enemy_2, Enemy_3, Enemy_4, Enemy_5, Enemy_6, Enemy_7, Enemy_8, Enemy_9, Enemy_10, Enemy_11, Enemy_12, Enemy_13, Enemy_14, Enemy_15, Boss_1, Boss_2, Boss_3
 from item import Item_1, Item_2
@@ -17,6 +18,7 @@ from shared import enemy_bullets, enemies, all_sprites, bullets
 from ui import (
     COLORS,
     create_creator_card,
+    draw_boss_health_bar,
     draw_button,
     draw_gameplay_hud,
     draw_heading,
@@ -36,6 +38,7 @@ items = {
     'item_2': pygame.sprite.Group(),
 }
 enemies_p = {f"enemies_{i}": pygame.sprite.Group() for i in range(1, 19)}
+BOSS_GROUP_KEYS = ('enemies_5', 'enemies_11', 'enemies_18')
 
 level_start_time = 0
 
@@ -67,6 +70,7 @@ running = True
 
 player = Player()
 all_sprites.add(player)
+boss_health_display = BossHealthDisplayState()
 
 def draw_text(text, font, color, surface, x, y):
     text_obj = font.render(text, 1, color)
@@ -741,27 +745,13 @@ def generate_enemy(level, enemy_type, enemy_class, boss=False, Is_support=False)
                 enemies.add(enemy)
             last_spawn_time = current_time
 
-def draw_health_bar(boss, screen):
-    max_health = boss.maxhp
-    current_health = boss.hp
-    health_bar_length = 100  # Total length of the health bar
-    current_health_length = (current_health / max_health) * health_bar_length
-    health_bar_height = 10  # Height of the health bar
-    # Adjust health bar position based on boss direction
-    if boss.direction == 0:  # Right
-        health_bar_x = boss.rect.right - health_bar_length
-        health_bar_y = boss.rect.top - health_bar_height - 10
-    elif boss.direction == 1:  # Down
-        health_bar_x = boss.rect.left
-        health_bar_y = boss.rect.bottom + 10
-    elif boss.direction == 2:  # Left
-        health_bar_x = boss.rect.left
-        health_bar_y = boss.rect.top - health_bar_height - 10
-    elif boss.direction == 3:  # Up
-        health_bar_x = boss.rect.left
-        health_bar_y = boss.rect.top - health_bar_height - 20
-    pygame.draw.rect(screen, (255,0,0), (health_bar_x, health_bar_y, health_bar_length, health_bar_height))
-    pygame.draw.rect(screen, (0,255,0), (health_bar_x, health_bar_y, current_health_length, health_bar_height))
+def get_active_boss():
+    for boss_group_key in BOSS_GROUP_KEYS:
+        for boss in enemies_p[boss_group_key]:
+            if getattr(boss, "hp", 0) > 0:
+                return boss
+    return None
+
 
 def display_text(text, value, color, position):
     rendered_text = font.render('{}: {}'.format(text, value), True, color)
@@ -970,21 +960,6 @@ while running:
     gameplay_background.advance()
     gameplay_background.draw(screen)
 
-    for boss in enemies_p['enemies_18']:
-        draw_health_bar(boss, screen)
-
-    for boss in enemies_p['enemies_11']:
-        draw_health_bar(boss, screen)
-
-    for boss in enemies_p['enemies_5']:
-        max_health = boss.maxhp
-        current_health = boss.hp
-        health_bar_length = 100  # Total length of the health bar
-        current_health_length = (current_health / max_health) * health_bar_length
-        health_bar_height = 10  # Height of the health bar
-        pygame.draw.rect(screen, (255,0,0), (boss.rect.x, boss.rect.bottom + 10, health_bar_length, health_bar_height))
-        pygame.draw.rect(screen, (0,255,0), (boss.rect.x, boss.rect.bottom + 10, current_health_length, health_bar_height))
-
     for group in items.values():
         for item in group:
             screen.blit(item.surf, item.rect)
@@ -1100,6 +1075,16 @@ while running:
                 screen.blit(entity.shield_surf, entity.shield_rect)
 
     draw_gameplay_hud(screen, level, score, player.lives, player.coin)
+    active_boss = get_active_boss()
+    boss_health = boss_health_display.update(active_boss, pygame.time.get_ticks())
+    if boss_health:
+        draw_boss_health_bar(
+            screen,
+            boss_health.name,
+            active_boss.hp,
+            active_boss.maxhp,
+            delayed_ratio=boss_health.delayed_ratio,
+        )
 
     pygame.display.flip()
     clock.tick(180) 

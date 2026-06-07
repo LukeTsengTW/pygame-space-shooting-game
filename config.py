@@ -19,6 +19,9 @@ def play_music(filename):
     pygame.mixer.music.play(-1)
 
 SCREEN_WIDTH, SCREEN_HEIGHT = 600, 900
+HUD_HEIGHT = 52
+BOSS_BAR_HEIGHT = 30
+GAMEPLAY_TOP = HUD_HEIGHT + BOSS_BAR_HEIGHT
 PLAYER_SPEED = 4
 BULLET_SPEED = 20
 ENEMY_GENERATION_THRESHOLDS = {
@@ -68,4 +71,3 @@ enemy_hp = {
     'enemies_17': 7000,
     'enemies_18': 300000,
 }
-

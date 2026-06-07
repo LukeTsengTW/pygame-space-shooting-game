@@ -66,8 +66,8 @@ class Player(pygame.sprite.Sprite):
             self.rect.left = 0
         elif self.rect.right > SCREEN_WIDTH:
             self.rect.right = SCREEN_WIDTH
-        if self.rect.top <= 0:
-            self.rect.top = 0
+        if self.rect.top <= GAMEPLAY_TOP:
+            self.rect.top = GAMEPLAY_TOP
         elif self.rect.bottom >= SCREEN_HEIGHT:
             self.rect.bottom = SCREEN_HEIGHT
         

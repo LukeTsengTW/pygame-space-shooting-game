@@ -8,7 +8,10 @@ import pygame
 
 from ui import (
     COLORS,
+    boss_health_bar_rect,
+    boss_health_color,
     create_creator_card,
+    draw_boss_health_bar,
     draw_button,
     draw_gameplay_hud,
     draw_opening_briefing,
@@ -19,6 +22,7 @@ from ui import (
     gameplay_hud_rects,
     level_grid_rects,
 )
+from config import GAMEPLAY_TOP, HUD_HEIGHT
 
 
 class TacticalUiGeometryTests(unittest.TestCase):
@@ -35,9 +39,19 @@ class TacticalUiGeometryTests(unittest.TestCase):
 
         self.assertEqual(len(rects), 4)
         self.assertTrue(all(pygame.Rect(0, 0, 600, 900).contains(rect) for rect in rects))
+        self.assertTrue(all(rect.top >= 0 and rect.bottom <= HUD_HEIGHT for rect in rects))
         for index, rect in enumerate(rects):
             for other in rects[index + 1:]:
                 self.assertFalse(rect.colliderect(other))
+
+    def test_boss_health_bar_sits_below_gameplay_hud(self):
+        boss_rect = boss_health_bar_rect(600)
+        hud_bottom = max(rect.bottom for rect in gameplay_hud_rects(600))
+
+        self.assertTrue(pygame.Rect(0, 0, 600, 900).contains(boss_rect))
+        self.assertGreater(boss_rect.top, hud_bottom)
+        self.assertGreaterEqual(boss_rect.top, HUD_HEIGHT)
+        self.assertLessEqual(boss_rect.bottom, GAMEPLAY_TOP)
 
 
 class TacticalUiRenderingTests(unittest.TestCase):
@@ -89,6 +103,41 @@ class TacticalUiRenderingTests(unittest.TestCase):
                 self.surface.get_at((rect.x + 8, rect.y + 8)),
                 pygame.Color(0, 0, 0, 0),
             )
+
+    def test_boss_health_color_thresholds_match_tactical_states(self):
+        self.assertEqual(boss_health_color(0.8), COLORS["cyan"])
+        self.assertEqual(boss_health_color(0.5), COLORS["gold"])
+        self.assertEqual(boss_health_color(0.19), COLORS["danger"])
+
+    def test_boss_health_bar_renders_name_percent_and_damage_trail(self):
+        rect = draw_boss_health_bar(
+            self.surface,
+            "EARTH DESTROYER",
+            400,
+            1000,
+            delayed_ratio=0.7,
+        )
+
+        self.assertTrue(pygame.Rect(0, 0, 600, 900).contains(rect))
+        self.assertNotEqual(self.surface.get_at(rect.center), pygame.Color(0, 0, 0, 0))
+        fill_y = rect.top + 15
+        self.assertEqual(self.surface.get_at((rect.left + 170, fill_y))[:3], COLORS["gold"])
+        self.assertNotEqual(
+            self.surface.get_at((rect.left + round(rect.width * 0.65), fill_y)),
+            pygame.Color(0, 0, 0, 0),
+        )
+
+    def test_boss_health_bar_handles_zero_health(self):
+        rect = draw_boss_health_bar(
+            self.surface,
+            "VOID CRUISER",
+            0,
+            1000,
+            delayed_ratio=0.0,
+        )
+
+        self.assertTrue(pygame.Rect(0, 0, 600, 900).contains(rect))
+        self.assertNotEqual(self.surface.get_at((rect.left + 18, rect.top + 18)), pygame.Color(0, 0, 0, 0))
 
     def test_slider_clamps_fill_to_track(self):
         rect = pygame.Rect(120, 300, 360, 18)
