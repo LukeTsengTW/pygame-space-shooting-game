@@ -26,3 +26,21 @@ class VerticalTileTests(unittest.TestCase):
                     result.crop((0, 0, 600, 1)).tobytes(),
                     result.crop((0, 1535, 600, 1536)).tobytes(),
                 )
+
+    def test_jpeg_output_keeps_edge_difference_below_three(self):
+        with tempfile.TemporaryDirectory(dir=Path("tests")) as directory:
+            source = Path("img/background/source/lv8_background_source.png")
+            output = Path(directory) / "output.jpg"
+
+            make_vertical_tile(source, output, 600, 1536, blend_height=96)
+
+            with Image.open(output) as result:
+                top = result.convert("RGB").crop((0, 0, 600, 1))
+                bottom = result.convert("RGB").crop((0, 1535, 600, 1536))
+                differences = [
+                    abs(a - b)
+                    for a, b in zip(top.tobytes(), bottom.tobytes())
+                ]
+                edge_mean = sum(differences) / len(differences)
+
+            self.assertLessEqual(edge_mean, 3.0)
