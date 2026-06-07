@@ -54,7 +54,7 @@ font = pygame.font.Font('font.ttf', 36)
 clock = pygame.time.Clock()
 
 hard_level = 1
-level = 3
+level = 1
 highest_unlocked_level = level
 
 is_complete_game = False

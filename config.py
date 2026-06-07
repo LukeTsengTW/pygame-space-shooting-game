@@ -45,7 +45,7 @@ BOSS_GENERATION_ONCE = {
     'enemies_18': False,
 }
 
-max_lives = 100
+max_lives = 10
 player_bullet_angle = [5, 0, -5]
 
 enemy_hp = {
