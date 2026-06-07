@@ -1,0 +1,147 @@
+import os
+import unittest
+
+os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
+
+import pygame
+
+from ui import (
+    COLORS,
+    create_creator_card,
+    draw_button,
+    draw_gameplay_hud,
+    draw_opening_briefing,
+    draw_opening_skip_prompt,
+    draw_panel,
+    draw_slider,
+    draw_tactical_starfield,
+    gameplay_hud_rects,
+    level_grid_rects,
+)
+
+
+class TacticalUiGeometryTests(unittest.TestCase):
+    def test_level_grid_has_fifteen_unique_in_bounds_buttons(self):
+        rects = level_grid_rects(600, 900)
+
+        self.assertEqual(len(rects), 15)
+        self.assertEqual(len({tuple(rect) for rect in rects}), 15)
+        self.assertEqual(len({rect.x for rect in rects}), 3)
+        self.assertTrue(all(pygame.Rect(0, 0, 600, 900).contains(rect) for rect in rects))
+
+    def test_gameplay_hud_cards_are_in_bounds_and_do_not_overlap(self):
+        rects = gameplay_hud_rects(600)
+
+        self.assertEqual(len(rects), 4)
+        self.assertTrue(all(pygame.Rect(0, 0, 600, 900).contains(rect) for rect in rects))
+        for index, rect in enumerate(rects):
+            for other in rects[index + 1:]:
+                self.assertFalse(rect.colliderect(other))
+
+
+class TacticalUiRenderingTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        pygame.init()
+        pygame.display.set_mode((1, 1))
+
+    @classmethod
+    def tearDownClass(cls):
+        pygame.quit()
+
+    def setUp(self):
+        self.surface = pygame.Surface((600, 900), pygame.SRCALPHA)
+
+    def test_panel_draws_translucent_surface_and_border(self):
+        draw_panel(self.surface, pygame.Rect(50, 50, 300, 180))
+
+        self.assertNotEqual(self.surface.get_at((60, 60)), pygame.Color(0, 0, 0, 0))
+        self.assertNotEqual(self.surface.get_at((200, 120)), pygame.Color(0, 0, 0, 0))
+
+    def test_button_semantic_styles_render_distinct_pixels(self):
+        rect = pygame.Rect(100, 100, 260, 58)
+        samples = {}
+
+        for style in ("primary", "secondary", "danger", "locked"):
+            surface = pygame.Surface((600, 900), pygame.SRCALPHA)
+            draw_button(
+                surface,
+                rect,
+                style.title(),
+                hovered=style != "locked",
+                style=style,
+                disabled=style == "locked",
+            )
+            samples[style] = tuple(surface.get_at((rect.left + 24, rect.centery)))
+
+        self.assertEqual(len(set(samples.values())), 4)
+        self.assertGreater(samples["primary"][2], samples["primary"][0])
+        self.assertGreater(samples["danger"][0], samples["danger"][2])
+
+    def test_gameplay_hud_renders_all_four_cards(self):
+        rects = gameplay_hud_rects(600)
+
+        draw_gameplay_hud(self.surface, 15, 8420, 92, 1280)
+
+        for rect in rects:
+            self.assertNotEqual(
+                self.surface.get_at((rect.x + 8, rect.y + 8)),
+                pygame.Color(0, 0, 0, 0),
+            )
+
+    def test_slider_clamps_fill_to_track(self):
+        rect = pygame.Rect(120, 300, 360, 18)
+
+        handle = draw_slider(self.surface, rect, 2.0)
+
+        self.assertLessEqual(handle.right, rect.right + handle.width // 2)
+        self.assertEqual(handle.centerx, rect.right)
+        fill_sample_x = rect.right - handle.width
+        self.assertEqual(
+            self.surface.get_at((fill_sample_x, rect.centery))[:3],
+            COLORS["cyan"],
+        )
+
+    def test_tactical_starfield_is_deterministic_for_same_tick(self):
+        first = pygame.Surface((600, 900), pygame.SRCALPHA)
+        second = pygame.Surface((600, 900), pygame.SRCALPHA)
+
+        draw_tactical_starfield(first, 1234)
+        draw_tactical_starfield(second, 1234)
+
+        self.assertEqual(
+            pygame.image.tostring(first, "RGBA"),
+            pygame.image.tostring(second, "RGBA"),
+        )
+
+    def test_opening_briefing_supports_first_and_final_steps(self):
+        first = pygame.Surface((600, 900), pygame.SRCALPHA)
+        final = pygame.Surface((600, 900), pygame.SRCALPHA)
+
+        first_rect = draw_opening_briefing(first, "Incoming transmission", 1, 11, 500)
+        final_rect = draw_opening_briefing(final, "Go, you will be a hero.", 11, 11, 500)
+
+        self.assertTrue(pygame.Rect(0, 0, 600, 900).contains(first_rect))
+        self.assertTrue(pygame.Rect(0, 0, 600, 900).contains(final_rect))
+        self.assertNotEqual(first.get_at(first_rect.center), pygame.Color(0, 0, 0, 0))
+        self.assertNotEqual(final.get_at(final_rect.center), pygame.Color(0, 0, 0, 0))
+
+    def test_opening_skip_prompt_draws_status_strip(self):
+        rect = draw_opening_skip_prompt(
+            self.surface,
+            "PRESS ANY KEY AGAIN TO SKIP",
+        )
+
+        self.assertTrue(pygame.Rect(0, 0, 600, 900).contains(rect))
+        self.assertNotEqual(self.surface.get_at(rect.center), pygame.Color(0, 0, 0, 0))
+
+    def test_creator_card_has_visible_alpha_content(self):
+        card = create_creator_card((440, 260))
+
+        self.assertEqual(card.get_size(), (440, 260))
+        self.assertGreater(pygame.mask.from_surface(card).count(), 0)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -7,9 +7,29 @@ from enemy import Enemy, Enemy_1, Enemy_2, Enemy_3, Enemy_4, Enemy_5, Enemy_6, E
 from item import Item_1, Item_2
 from explosion import Explosion_1, Explosion_2, Explosion_3, Explosion_4, Explosion_5, Explosion_6, Explosion_7, Explosion_8, Explosion_9, Explosion_10, Explosion_11, Explosion_12, Explosion_13, Explosion_14, Explosion_15, Explosion_16, Explosion_17, Explosion_18
 from level_progress import can_select_level, unlocked_level_after_clear
-from opening_skip import OpeningSkipState, is_opening_skip_input
+from opening_skip import (
+    OPENING_SKIP_PROMPT,
+    OpeningSkipState,
+    is_opening_skip_input,
+)
 from player import Player
 from shared import enemy_bullets, enemies, all_sprites, bullets
+from ui import (
+    COLORS,
+    create_creator_card,
+    draw_button,
+    draw_gameplay_hud,
+    draw_heading,
+    draw_modal_backdrop,
+    draw_opening_briefing,
+    draw_opening_skip_prompt as draw_ui_opening_skip_prompt,
+    draw_panel,
+    draw_slider,
+    draw_stat_card,
+    draw_tactical_starfield,
+    draw_text as draw_ui_text,
+    level_grid_rects,
+)
 
 items = {
     'item_1': pygame.sprite.Group(),
@@ -79,10 +99,9 @@ def setting():
     setting_running = True
     text_options = ['Control the sprite with keyboard', 'Control the sprite with cursor']
 
-    button_width = 200
-    button_height = 50
-    button_1 = pygame.Rect((SCREEN_WIDTH - 550) // 2, (SCREEN_HEIGHT - button_height) // 2 - 180, 550, button_height)
-    button_2 = pygame.Rect((SCREEN_WIDTH - button_width) // 2, (SCREEN_HEIGHT - button_height) // 2 + 60, button_width, button_height)
+    control_button = pygame.Rect(90, 270, 420, 82)
+    slider_rect = pygame.Rect(120, 490, 360, 18)
+    back_button = pygame.Rect(180, 700, 240, 58)
 
     setting_background = ScrollingBackground(
         pygame.image.load('img/background/setting_background.jpg'),
@@ -93,27 +112,31 @@ def setting():
         setting_background.advance()
         setting_background.draw(screen)
 
-        draw_text('Setting', font, (255, 255, 255), screen, SCREEN_WIDTH/2, 150)
-
         mx, my = pygame.mouse.get_pos()
-        
-        pygame.draw.rect(screen, (0, 200, 0), button_1)
-        pygame.draw.rect(screen, (200, 0, 0), button_2)
+        draw_panel(screen, pygame.Rect(50, 145, 500, 655), alpha=232)
+        draw_heading(screen, 'Settings', 'FLIGHT CONTROL CONFIGURATION', y=82)
 
+        draw_ui_text(screen, 'CONTROL MODE', 16, COLORS['muted'], (90, 235), anchor='midleft')
         text = text_options[current_text]
-        draw_text(text , font, (255, 255, 255), screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 180)
-        draw_text('Back menu', font, (255, 255, 255), screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 60)
+        draw_button(
+            screen,
+            control_button,
+            text,
+            hovered=control_button.collidepoint((mx, my)),
+            style='primary',
+            subtitle='CLICK TO SWITCH INPUT SYSTEM',
+        )
 
-        # Add a slider for volume control
-        slider_rect = pygame.Rect((SCREEN_WIDTH - 300) // 2, SCREEN_HEIGHT // 2 - 60, 300, 20)
-        slider_button_rect = pygame.Rect((SCREEN_WIDTH - 300) // 2 + 270 * volume_level, SCREEN_HEIGHT // 2 - 60, 30, 20)
-        pygame.draw.rect(screen, (100, 100, 100), slider_rect)
-        pygame.draw.rect(screen, (0, 255, 0), slider_button_rect)
-
+        draw_ui_text(screen, 'MASTER VOLUME', 16, COLORS['muted'], (90, 445), anchor='midleft')
+        draw_slider(screen, slider_rect, volume_level)
         volume_percentage = f"{int(volume_level * 101)}%"
-        draw_text(volume_percentage, font, (255, 255, 255), screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 10)
-
-        draw_text('Volume', font, (255, 255, 255), screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 90)
+        draw_ui_text(screen, volume_percentage, 24, COLORS['text'], (SCREEN_WIDTH // 2, 545))
+        draw_button(
+            screen,
+            back_button,
+            'BACK TO MENU',
+            hovered=back_button.collidepoint((mx, my)),
+        )
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -125,17 +148,17 @@ def setting():
                     sys.exit()
             if event.type == pygame.MOUSEBUTTONDOWN or (event.type == pygame.MOUSEMOTION and event.buttons[0] == 1):
                 if slider_rect.collidepoint((mx, my)):
-                    volume_level = (mx - slider_rect.x) / slider_rect.width
+                    volume_level = max(0.0, min(1.0, (mx - slider_rect.x) / slider_rect.width))
                     pygame.mixer.music.set_volume(volume_level)
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
-                    if button_1.collidepoint((mx, my)):
+                    if control_button.collidepoint((mx, my)):
                         current_text = (current_text + 1) % len(text_options)
                         if current_text == 0:
                             player.control = 0
                         else:
                             player.control = 1
-                    if button_2.collidepoint((mx, my)):
+                    if back_button.collidepoint((mx, my)):
                         setting_running = False
 
         pygame.display.update()
@@ -154,33 +177,46 @@ def upgrade_UI():
         upgrade_background.advance()
         upgrade_background.draw(screen)
 
-        draw_text('Upgrade Menu', font, (255, 255, 255), screen, SCREEN_WIDTH/2, 150)
-
         mx, my = pygame.mouse.get_pos()
 
-        button_width = 450
-        button_height = 50
-        button_1 = pygame.Rect((SCREEN_WIDTH - button_width) // 2, (SCREEN_HEIGHT - button_height) // 2 - 200, button_width, button_height)
-        button_2 = pygame.Rect((SCREEN_WIDTH - button_width) // 2, (SCREEN_HEIGHT - button_height) // 2 - 100, button_width, button_height)
-        button_3 = pygame.Rect((SCREEN_WIDTH - button_width) // 2, (SCREEN_HEIGHT - button_height) // 2, button_width, button_height)
-        button_4 = pygame.Rect((SCREEN_WIDTH - button_width) // 2, (SCREEN_HEIGHT - button_height) // 2 + 100, button_width, button_height)
+        button_1 = pygame.Rect(75, 195, 450, 112)
+        button_2 = pygame.Rect(75, 335, 450, 112)
+        button_3 = pygame.Rect(75, 475, 450, 112)
+        button_4 = pygame.Rect(180, 705, 240, 58)
 
-        pygame.draw.rect(screen, (0, 200, 0), button_1)
-        pygame.draw.rect(screen, (0, 0, 200), button_2)
-        pygame.draw.rect(screen, (200, 0, 200), button_3)
-        pygame.draw.rect(screen, (200, 0, 0), button_4)
+        draw_panel(screen, pygame.Rect(45, 135, 510, 660), alpha=232)
+        draw_heading(screen, 'Upgrade', 'SHIP SYSTEM ENHANCEMENT', y=76)
+        draw_stat_card(
+            screen,
+            pygame.Rect(420, 45, 145, 64),
+            'Coin',
+            f'{player.coin:,}',
+            accent=COLORS['gold'],
+        )
 
-        coin_text = font.render('Coin: {}'.format(player.coin), True, (255, 185, 0))
-        screen.blit(coin_text, (10, 100)) 
-        
-        draw_text(f'Lv.{damage_level} Add bullet damage', font, (255, 255, 255), screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 200)
-        draw_text(f'Lv.{bullet_speed_level} Add bullet speed', font, (255, 255, 255), screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 100)
-        draw_text(f'Lv.{live_level} Add Live', font, (255, 255, 255), screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
-        draw_text('Back main menu', font, (255, 255, 255), screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 100)
+        upgrade_rows = (
+            (button_1, 'WEAPON DAMAGE', damage_level, damage_level_need_coin),
+            (button_2, 'PROJECTILE SPEED', bullet_speed_level, bullet_speed_level_need_coin),
+            (button_3, 'HULL CAPACITY', live_level, live_level_need_coin),
+        )
+        for button, label, upgrade_level, cost in upgrade_rows:
+            affordable = player.coin >= cost
+            draw_button(
+                screen,
+                button,
+                f'{label}  /  LV.{upgrade_level}',
+                hovered=button.collidepoint((mx, my)) and affordable,
+                style='primary' if affordable else 'locked',
+                disabled=not affordable,
+                subtitle=f'COST  {cost:,} COINS',
+            )
 
-        draw_text(f'Cost: {damage_level_need_coin} coins', font, (255, 255, 255), screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 200 + button_height + 5)
-        draw_text(f'Cost: {bullet_speed_level_need_coin} coins', font, (255, 255, 255), screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 100 + button_height + 5)
-        draw_text(f'Cost: {live_level_need_coin} coins', font, (255, 255, 255), screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + button_height + 5)
+        draw_button(
+            screen,
+            button_4,
+            'BACK TO MENU',
+            hovered=button_4.collidepoint((mx, my)),
+        )
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -217,35 +253,32 @@ def upgrade_UI():
 def credits():
     credits_running = True
     while credits_running:
-        screen.fill((0,0,0))
-        draw_text('Credits', font, (255, 255, 255), screen, SCREEN_WIDTH/2, 150)
-
+        screen.fill(COLORS['navy'])
         mx, my = pygame.mouse.get_pos()
+        button_1 = pygame.Rect(180, 790, 240, 58)
+        draw_panel(screen, pygame.Rect(55, 130, 490, 630), alpha=240)
+        draw_heading(screen, 'Credits', 'MISSION DEVELOPMENT CREW', y=72)
 
-        button_width = 200
-        button_height = 50
-        button_1 = pygame.Rect((SCREEN_WIDTH - button_width) // 2, (SCREEN_HEIGHT - button_height) // 2 + 350, button_width, button_height)
+        credit_rows = (
+            ('PROGRAMMER', 'LukeTseng'),
+            ('GAME DESIGNER', 'LukeTseng'),
+            ('GRAPH ARTIST / MATERIAL', 'FoozleCC'),
+            ('BACKGROUND / MATERIAL', 'Leonardo AI'),
+            ('MUSIC / MATERIAL', 'OpenGameArt : Oblidivm'),
+            ('GAME ENGINE', 'Pygame'),
+        )
+        y = 190
+        for role, name in credit_rows:
+            draw_ui_text(screen, role, 14, COLORS['muted'], (SCREEN_WIDTH // 2, y))
+            draw_ui_text(screen, name, 22, COLORS['text'], (SCREEN_WIDTH // 2, y + 28))
+            y += 86
 
-        pygame.draw.rect(screen, (200, 0, 0), button_1)
-        
-        draw_text('Programmer', font, (90, 90, 225), screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 240)
-        draw_text('LukeTseng', font, (255, 255, 255), screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 200)
-
-        draw_text('Game Designer', font, (90, 90, 225), screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 140)
-        draw_text('LukeTseng', font, (255, 255, 255), screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 100)
-
-        draw_text('Graph Artist (Material Usage)', font, (90, 90, 225), screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 40)
-        draw_text('FoozleCC', font, (255, 255, 255), screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
-
-        draw_text('Background (Material Usage)', font, (90, 90, 225), screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 60)
-        draw_text('Leonardo AI', font, (255, 255, 255), screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 100)
-
-        draw_text('Music (Material Usage)', font, (90, 90, 225), screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 160)
-        draw_text('OpenGameArt : Oblidivm', font, (255, 255, 255), screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 200)
-
-        draw_text('Game Engine : Pygame', font, (255, 255, 255), screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 280)
-
-        draw_text('Back', font, (255, 255, 255), screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 350)
+        draw_button(
+            screen,
+            button_1,
+            'BACK',
+            hovered=button_1.collidepoint((mx, my)),
+        )
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -262,20 +295,30 @@ def credits():
 def chose_level():
     global level
     chose_level_running = True
+    level_buttons = level_grid_rects(SCREEN_WIDTH, SCREEN_HEIGHT)
+    button_back = pygame.Rect(180, 790, 240, 58)
     while chose_level_running:
-        screen.fill((0, 0, 0))
-        for i in range(1, 16):
-            if can_select_level(i, highest_unlocked_level):
-                button_color = (0, 200, 0)  # Green for current level
-            else:
-                button_color = (200, 0, 0)  # Red for locked levels
-            button = pygame.Rect((SCREEN_WIDTH - 200) // 2, 50 * i, 200, 40)
-            pygame.draw.rect(screen, button_color, button)
-            draw_text(f'Level {i}', font, (255, 255, 255), screen, SCREEN_WIDTH // 2, 50 * i + 20)
+        screen.fill(COLORS['navy'])
+        mx, my = pygame.mouse.get_pos()
+        draw_panel(screen, pygame.Rect(35, 150, 530, 590), alpha=235)
+        draw_heading(screen, 'Mission Select', 'NORMAL CAMPAIGN', y=72)
+        for index, button in enumerate(level_buttons, start=1):
+            unlocked = can_select_level(index, highest_unlocked_level)
+            draw_button(
+                screen,
+                button,
+                f'LEVEL {index:02d}',
+                hovered=unlocked and button.collidepoint((mx, my)),
+                style='secondary' if unlocked else 'locked',
+                disabled=not unlocked,
+            )
 
-        button_back = pygame.Rect((SCREEN_WIDTH - 200) // 2, SCREEN_HEIGHT - 100, 200, 40)
-        pygame.draw.rect(screen, (100, 100, 100), button_back)
-        draw_text('Back', font, (255, 255, 255), screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT - 80)
+        draw_button(
+            screen,
+            button_back,
+            'BACK',
+            hovered=button_back.collidepoint((mx, my)),
+        )
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -283,8 +326,7 @@ def chose_level():
                 sys.exit()
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mx, my = pygame.mouse.get_pos()
-                for i in range(1, 16):
-                    button = pygame.Rect((SCREEN_WIDTH - 200) // 2, 50 * i, 200, 40)
+                for i, button in enumerate(level_buttons, start=1):
                     if button.collidepoint((mx, my)):
                         if can_select_level(i, highest_unlocked_level):
                             play_music("music/battle_in_the_stars.ogg")
@@ -302,23 +344,54 @@ def chose_level():
 def chose_hard_level():
     global hard_level
     chose_hard_level_running = True
+    level_buttons = level_grid_rects(SCREEN_WIDTH, SCREEN_HEIGHT)
+    button_back = pygame.Rect(180, 790, 240, 58)
     while chose_hard_level_running:
-        screen.fill((0, 0, 0))
-        button_back = pygame.Rect((SCREEN_WIDTH - 200) // 2, SCREEN_HEIGHT - 100, 200, 40)
-        pygame.draw.rect(screen, (100, 100, 100), button_back)
-        draw_text('Back', font, (255, 255, 255), screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT - 80)
+        screen.fill(COLORS['navy'])
+        mx, my = pygame.mouse.get_pos()
+        draw_heading(screen, 'Hard Missions', 'ELITE CAMPAIGN', y=72)
         if is_complete_game:
-            for i in range(1, 16):
-                if i <= hard_level:
-                    button_color = (0, 200, 0)  # Green for current level
-                else:
-                    button_color = (200, 0, 0)  # Red for locked levels
-                button = pygame.Rect((SCREEN_WIDTH - 200) // 2, 50 * i, 200, 40)
-                pygame.draw.rect(screen, button_color, button)
-                draw_text(f'Level {i}', font, (255, 255, 255), screen, SCREEN_WIDTH // 2, 50 * i + 20)
+            draw_panel(screen, pygame.Rect(35, 150, 530, 590), alpha=235)
+            for i, button in enumerate(level_buttons, start=1):
+                unlocked = i <= hard_level
+                draw_button(
+                    screen,
+                    button,
+                    f'LEVEL {i:02d}',
+                    hovered=unlocked and button.collidepoint((mx, my)),
+                    style='danger' if unlocked else 'locked',
+                    disabled=not unlocked,
+                )
         else:
-            draw_text("You still haven't completed", font, (255, 255, 255), screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 50)
-            draw_text("the normal level yet.", font, (255, 255, 255), screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
+            draw_panel(screen, pygame.Rect(70, 260, 460, 300), alpha=242)
+            draw_ui_text(
+                screen,
+                'ACCESS DENIED',
+                30,
+                COLORS['danger_hover'],
+                (SCREEN_WIDTH // 2, 350),
+            )
+            draw_ui_text(
+                screen,
+                'Complete the normal campaign',
+                19,
+                COLORS['text'],
+                (SCREEN_WIDTH // 2, 420),
+            )
+            draw_ui_text(
+                screen,
+                'to unlock elite missions.',
+                19,
+                COLORS['muted'],
+                (SCREEN_WIDTH // 2, 455),
+            )
+
+        draw_button(
+            screen,
+            button_back,
+            'BACK',
+            hovered=button_back.collidepoint((mx, my)),
+        )
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -326,10 +399,9 @@ def chose_hard_level():
                 sys.exit()
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mx, my = pygame.mouse.get_pos()
-                for i in range(1, 16):
-                    button = pygame.Rect((SCREEN_WIDTH - 200) // 2, 50 * i, 200, 40)
+                for i, button in enumerate(level_buttons, start=1):
                     if button.collidepoint((mx, my)):
-                        if i <= hard_level:
+                        if is_complete_game and i <= hard_level:
                             hard_level = i
                             chose_hard_level_running = False
                             player.out_of_game = False
@@ -344,12 +416,12 @@ def chose_hard_level():
 def main_menu():
     play_music("music/brave_pilots_menu_screen.ogg")
     main_running = True
-    button_width = 200
-    button_height = 50
     button_texts = ['Play', 'Upgrade', 'Setting', 'Exit', 'Credits', 'Hard Mode']
-    button_colors = [(0, 200, 0), (200, 0, 200), (0, 200, 200), (200, 0, 0), (200, 200, 0), (255, 0, 0)]
     button_actions = [chose_level, upgrade_UI, setting, sys.exit, credits, chose_hard_level]
-    buttons = [pygame.Rect((SCREEN_WIDTH - button_width) // 2, (SCREEN_HEIGHT - button_height) // 2 - 240 + i * 120, button_width, button_height) for i in range(len(button_texts))]
+    buttons = [
+        pygame.Rect(155, 220 + i * 88, 290, 58)
+        for i in range(len(button_texts))
+    ]
 
     menu_background = ScrollingBackground(
         pygame.image.load('img/background/menu_background.jpg'),
@@ -359,12 +431,18 @@ def main_menu():
     while main_running:
         menu_background.advance()
         menu_background.draw(screen)
-        draw_text('Main Menu', font, (255, 255, 255), screen, SCREEN_WIDTH // 2, 100)
-
         mx, my = pygame.mouse.get_pos()
-        for idx, button in enumerate(buttons):
-            pygame.draw.rect(screen, button_colors[idx], button)
-            draw_text(button_texts[idx], font, (255, 255, 255), screen, SCREEN_WIDTH // 2, button.y + 20)
+        draw_panel(screen, pygame.Rect(115, 145, 370, 655), alpha=226, border=COLORS['cyan'])
+        draw_heading(screen, 'Space Shooter', 'TACTICAL FLIGHT COMMAND', y=76)
+        styles = ('primary', 'secondary', 'secondary', 'danger', 'secondary', 'secondary')
+        for button, label, style in zip(buttons, button_texts, styles):
+            draw_button(
+                screen,
+                button,
+                label.upper(),
+                hovered=button.collidepoint((mx, my)),
+                style=style,
+            )
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -386,11 +464,30 @@ def game_over_screen():
     game_over_running = True
     player.out_of_game = True
     pygame.mouse.set_visible(True)
+    result_background = screen.copy()
     while game_over_running:
-        screen.fill((0, 0, 0))
-        draw_text('Game Over', font, (255, 255, 255), screen, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 - 100)
-        draw_text('press 1. return main menu', font, (255, 255, 255), screen, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2)
-        draw_text('press 2. exit game', font, (255, 255, 255), screen, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 50)
+        screen.blit(result_background, (0, 0))
+        modal = draw_modal_backdrop(screen, pygame.Rect(70, 225, 460, 450))
+        draw_ui_text(screen, 'MISSION FAILED', 38, COLORS['danger_hover'], (modal.centerx, 315))
+        draw_ui_text(
+            screen,
+            'Your ship has been destroyed.',
+            18,
+            COLORS['muted'],
+            (modal.centerx, 375),
+        )
+        draw_button(
+            screen,
+            pygame.Rect(125, 445, 350, 62),
+            '1  /  RETURN TO COMMAND',
+            style='primary',
+        )
+        draw_button(
+            screen,
+            pygame.Rect(125, 535, 350, 62),
+            '2  /  EXIT GAME',
+            style='danger',
+        )
         pygame.display.flip()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -409,12 +506,31 @@ def all_levels_completed_screen():
     all_levels_completed_running = True
     player.out_of_game = True
     pygame.mouse.set_visible(True)
+    result_background = screen.copy()
     while all_levels_completed_running:
-        screen.fill((0, 0, 0))
-        draw_text('Congratulations!', font, (255, 255, 255), screen, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 - 100)
-        draw_text('All levels completed!', font, (255, 255, 255), screen, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2)
-        draw_text('You are unlock the hard mode now.', font, (255, 255, 255), screen, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 50)
-        draw_text('Press 1 to return to main menu', font, (255, 255, 255), screen, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 100)
+        screen.blit(result_background, (0, 0))
+        modal = draw_modal_backdrop(screen, pygame.Rect(60, 215, 480, 470))
+        draw_ui_text(screen, 'CAMPAIGN COMPLETE', 34, COLORS['cyan_hover'], (modal.centerx, 305))
+        draw_ui_text(
+            screen,
+            'All normal missions cleared.',
+            19,
+            COLORS['text'],
+            (modal.centerx, 375),
+        )
+        draw_ui_text(
+            screen,
+            'Elite campaign access granted.',
+            19,
+            COLORS['gold'],
+            (modal.centerx, 415),
+        )
+        draw_button(
+            screen,
+            pygame.Rect(120, 520, 360, 64),
+            '1  /  RETURN TO COMMAND',
+            style='primary',
+        )
         pygame.display.flip()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -427,25 +543,35 @@ def all_levels_completed_screen():
 
 def pause_menu():
     pause_running = True
+    paused_background = screen.copy()
+    button_1 = pygame.Rect(155, 365, 290, 62)
+    button_2 = pygame.Rect(155, 460, 290, 62)
+    button_3 = pygame.Rect(155, 555, 290, 62)
     while pause_running:
-        screen.fill((0,0,0))
-        draw_text('Pause', font, (255, 255, 255), screen, SCREEN_WIDTH/2, 150)
-
+        screen.blit(paused_background, (0, 0))
         mx, my = pygame.mouse.get_pos()
-
-        button_width = 200
-        button_height = 50
-        button_1 = pygame.Rect((SCREEN_WIDTH - button_width) // 2, (SCREEN_HEIGHT - button_height) // 2 - 180, button_width, button_height)
-        button_2 = pygame.Rect((SCREEN_WIDTH - button_width) // 2, (SCREEN_HEIGHT - button_height) // 2 - 60, button_width, button_height)
-        button_3 = pygame.Rect((SCREEN_WIDTH - button_width) // 2, (SCREEN_HEIGHT - button_height) // 2 + 60, button_width, button_height)
-
-        pygame.draw.rect(screen, (0, 200, 0), button_1)
-        pygame.draw.rect(screen, (200, 0, 200), button_2)
-        pygame.draw.rect(screen, (200, 0, 0), button_3)
-        
-        draw_text('Continue', font, (255, 255, 255), screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 180)
-        draw_text('Setting', font, (255, 255, 255), screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 60)
-        draw_text('Back menu', font, (255, 255, 255), screen, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 60)
+        draw_modal_backdrop(screen, pygame.Rect(95, 210, 410, 500))
+        draw_ui_text(screen, 'MISSION PAUSED', 34, COLORS['text'], (SCREEN_WIDTH // 2, 290))
+        draw_button(
+            screen,
+            button_1,
+            'CONTINUE',
+            hovered=button_1.collidepoint((mx, my)),
+            style='primary',
+        )
+        draw_button(
+            screen,
+            button_2,
+            'SETTINGS',
+            hovered=button_2.collidepoint((mx, my)),
+        )
+        draw_button(
+            screen,
+            button_3,
+            'BACK TO MENU',
+            hovered=button_3.collidepoint((mx, my)),
+            style='danger',
+        )
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -474,30 +600,52 @@ def stage_clear_screen(level, score):
     animation_time = 0
     player.out_of_game = True
     pygame.mouse.set_visible(True)
+    result_background = screen.copy()
     while stage_clear_running:
-        screen.fill((0, 0, 0))
-        draw_text('Stage Clear !', font, (255, 255, 255), screen, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 - 100)
-        draw_text(f'Score: {animation_score}', font, (255, 255, 255), screen, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2)
+        screen.blit(result_background, (0, 0))
+        draw_modal_backdrop(screen, pygame.Rect(65, 120, 470, 700))
+        draw_ui_text(screen, 'MISSION COMPLETE', 34, COLORS['cyan_hover'], (SCREEN_WIDTH // 2, 205))
+        draw_ui_text(screen, 'FINAL SCORE', 15, COLORS['muted'], (SCREEN_WIDTH // 2, 275))
+        draw_ui_text(screen, f'{animation_score:,}', 34, COLORS['gold'], (SCREEN_WIDTH // 2, 320))
 
         if pygame.time.get_ticks() - animation_time > 5:
             if animation_score <= score:
                 animation_score += 1
                 animation_time = pygame.time.get_ticks()
         
-        button_next_level = pygame.Rect((SCREEN_WIDTH - 200) // 2 - 28, SCREEN_HEIGHT // 2 + 50, 250, 50)
-        button_back_menu = pygame.Rect((SCREEN_WIDTH - 200) // 2 - 28, SCREEN_HEIGHT // 2 + 260, 250, 50)
-        button_restart_level = pygame.Rect((SCREEN_WIDTH - 200) // 2 - 28, SCREEN_HEIGHT // 2 + 120, 250, 50)
-        pygame.draw.rect(screen, (0, 200, 0), button_next_level)
-        pygame.draw.rect(screen, (200, 0, 0), button_back_menu)
-        pygame.draw.rect(screen, (100, 100, 100), button_restart_level)
-        draw_text('Next Level', font, (255, 255, 255), screen, SCREEN_WIDTH / 2, SCREEN_HEIGHT // 2 + 75)
-        draw_text('Back Menu', font, (255, 255, 255), screen, SCREEN_WIDTH / 2, SCREEN_HEIGHT // 2 + 285)
-        draw_text('Restart Level', font, (255, 255, 255), screen, SCREEN_WIDTH / 2, SCREEN_HEIGHT // 2 + 145)
+        mx, my = pygame.mouse.get_pos()
+        button_next_level = pygame.Rect(150, 390, 300, 58)
+        button_restart_level = pygame.Rect(150, 470, 300, 58)
+        button_back_menu = pygame.Rect(150, 690, 300, 58)
+        draw_button(
+            screen,
+            button_next_level,
+            'NEXT LEVEL',
+            hovered=button_next_level.collidepoint((mx, my)),
+            style='primary',
+        )
+        draw_button(
+            screen,
+            button_restart_level,
+            'RESTART LEVEL',
+            hovered=button_restart_level.collidepoint((mx, my)),
+        )
+        draw_button(
+            screen,
+            button_back_menu,
+            'BACK TO MENU',
+            hovered=button_back_menu.collidepoint((mx, my)),
+            style='danger',
+        )
         
         if level > 1:
-            button_previous_level = pygame.Rect((SCREEN_WIDTH - 200 - 55) // 2, SCREEN_HEIGHT // 2 + 190, 250, 50)
-            pygame.draw.rect(screen, (0, 0, 200), button_previous_level)
-            draw_text('Previous Level', font, (255, 255, 255), screen, SCREEN_WIDTH / 2, SCREEN_HEIGHT // 2 + 215)
+            button_previous_level = pygame.Rect(150, 550, 300, 58)
+            draw_button(
+                screen,
+                button_previous_level,
+                'PREVIOUS LEVEL',
+                hovered=button_previous_level.collidepoint((mx, my)),
+            )
         
         pygame.display.flip()
         
@@ -619,19 +767,9 @@ def display_text(text, value, color, position):
     rendered_text = font.render('{}: {}'.format(text, value), True, color)
     screen.blit(rendered_text, position)
 
-OPENING_SKIP_PROMPT = '再次點擊任意鍵跳過'
-
-
 def draw_opening_skip_prompt(skip_state):
     if skip_state.prompt_visible:
-        draw_text(
-            OPENING_SKIP_PROMPT,
-            font,
-            (180, 180, 180),
-            screen,
-            SCREEN_WIDTH // 2,
-            SCREEN_HEIGHT - 50,
-        )
+        draw_ui_opening_skip_prompt(screen, OPENING_SKIP_PROMPT)
 
 
 def process_opening_events(skip_state):
@@ -663,14 +801,17 @@ def wait_during_opening(duration, skip_state, draw_frame):
     return False
 
 
-def draw_opening_text(text, position):
-    screen.fill((0, 0, 0))
-    text_surface = font.render(text, True, (255, 255, 255))
-    text_rect = text_surface.get_rect(center=position)
-    screen.blit(text_surface, text_rect.topleft)
+def draw_opening_text(text, step, total_steps):
+    draw_opening_briefing(
+        screen,
+        text,
+        step,
+        total_steps,
+        pygame.time.get_ticks(),
+    )
 
 
-def display_text_word_by_word(text, position, skip_state, delay=70):
+def display_text_word_by_word(text, step, total_steps, skip_state, delay=40):
     rendered_text = ''
     text_sound_effect.play()
     for word in text:
@@ -678,7 +819,11 @@ def display_text_word_by_word(text, position, skip_state, delay=70):
         if wait_during_opening(
             delay,
             skip_state,
-            lambda current_text=rendered_text: draw_opening_text(current_text, position),
+            lambda current_text=rendered_text: draw_opening_text(
+                current_text,
+                step,
+                total_steps,
+            ),
         ):
             text_sound_effect.stop()
             return True
@@ -690,9 +835,9 @@ def display_opening_screen(texts, delay=500):
     pygame.mixer.music.load('music/skyfire_title_screen.ogg')
     pygame.mixer.music.play()
     pygame.mixer.music.set_volume(0.3)
-    for text in texts:
-        text_position = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
-        if display_text_word_by_word(text, text_position, skip_state):
+    total_steps = len(texts)
+    for step, text in enumerate(texts, start=1):
+        if display_text_word_by_word(text, step, total_steps, skip_state):
             pygame.mixer.music.stop()
             return
 
@@ -700,32 +845,33 @@ def display_opening_screen(texts, delay=500):
         if wait_during_opening(
             delay,
             skip_state,
-            lambda current_text=text: draw_opening_text(current_text, text_position),
+            lambda current_text=text: draw_opening_text(
+                current_text,
+                step,
+                total_steps,
+            ),
         ):
             pygame.mixer.music.stop()
             return
     
     text_sound_effect.stop()
-    
-    text = "Made by LukeTseng"
-    font_color = (255, 255, 255)
-    text_surface = font.render(text, True, font_color)
-    text_rect = text_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+    creator_card = create_creator_card((440, 260))
+    creator_rect = creator_card.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
     
     for alpha in range(0, 256, 10):
         def draw_credit_fade_in(current_alpha=alpha):
-            text_surface.set_alpha(current_alpha)
-            screen.fill((0, 0, 0))
-            screen.blit(text_surface, text_rect)
+            draw_tactical_starfield(screen, pygame.time.get_ticks())
+            creator_card.set_alpha(current_alpha)
+            screen.blit(creator_card, creator_rect)
 
         if wait_during_opening(100, skip_state, draw_credit_fade_in):
             pygame.mixer.music.stop()
             return
     
     def draw_credit():
-        text_surface.set_alpha(255)
-        screen.fill((0, 0, 0))
-        screen.blit(text_surface, text_rect)
+        draw_tactical_starfield(screen, pygame.time.get_ticks())
+        creator_card.set_alpha(255)
+        screen.blit(creator_card, creator_rect)
 
     if wait_during_opening(3000, skip_state, draw_credit):
         pygame.mixer.music.stop()
@@ -733,15 +879,19 @@ def display_opening_screen(texts, delay=500):
 
     for alpha in range(255, -1, -10):
         def draw_credit_fade_out(current_alpha=alpha):
-            text_surface.set_alpha(current_alpha)
-            screen.fill((0, 0, 0))
-            screen.blit(text_surface, text_rect)
+            draw_tactical_starfield(screen, pygame.time.get_ticks())
+            creator_card.set_alpha(current_alpha)
+            screen.blit(creator_card, creator_rect)
 
         if wait_during_opening(100, skip_state, draw_credit_fade_out):
             pygame.mixer.music.stop()
             return
 
-    if wait_during_opening(1000, skip_state, lambda: screen.fill((0, 0, 0))):
+    if wait_during_opening(
+        1000,
+        skip_state,
+        lambda: draw_tactical_starfield(screen, pygame.time.get_ticks()),
+    ):
         pygame.mixer.music.stop()
 
 texts = [
@@ -949,10 +1099,7 @@ while running:
             if entity.shield_surf is not None:
                 screen.blit(entity.shield_surf, entity.shield_rect)
 
-    display_text('Level', level, (255, 255, 255), (10, 10))
-    display_text('Score', score, (255, 255, 255), (10, 40))
-    display_text('Live', player.lives, (0, 235, 0), (10, 70))
-    display_text('Coin', player.coin, (255, 185, 0), (10, 100))
+    draw_gameplay_hud(screen, level, score, player.lives, player.coin)
 
     pygame.display.flip()
     clock.tick(180) 

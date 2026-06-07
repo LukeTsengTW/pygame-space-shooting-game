@@ -1,3 +1,6 @@
+OPENING_SKIP_PROMPT = "PRESS ANY KEY AGAIN TO SKIP"
+
+
 def is_opening_skip_input(event_type, keydown_type, mouse_button_down_type):
     return event_type in (keydown_type, mouse_button_down_type)
 

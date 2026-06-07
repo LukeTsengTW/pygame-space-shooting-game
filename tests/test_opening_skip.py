@@ -1,9 +1,16 @@
 import unittest
 
-from opening_skip import OpeningSkipState, is_opening_skip_input
+from opening_skip import (
+    OPENING_SKIP_PROMPT,
+    OpeningSkipState,
+    is_opening_skip_input,
+)
 
 
 class OpeningSkipStateTests(unittest.TestCase):
+    def test_skip_prompt_is_english(self):
+        self.assertEqual(OPENING_SKIP_PROMPT, "PRESS ANY KEY AGAIN TO SKIP")
+
     def test_keyboard_and_mouse_button_events_trigger_skip_input(self):
         keydown = 1
         mouse_button_down = 2
