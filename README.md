@@ -6,9 +6,64 @@ In addition, the game was created through the author's one hour on weekdays and 
 
 # Environment
 
-The development environment is in Python 3.12.2.
+The development environment uses Python 3.12.2 and Pygame 2.6.1.
 
-Type `pip install pygame` in cmd to install pygame.
+## Install on Windows PowerShell
+
+Python 3.12 is recommended for this project. Install it with:
+
+```powershell
+winget install -e --id Python.Python.3.12
+```
+
+Restart PowerShell, open the project directory, and create a virtual environment:
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install pygame==2.6.1
+```
+
+Verify the installation:
+
+```powershell
+python -c "import pygame; print(pygame.version.ver)"
+```
+
+If PowerShell blocks the virtual environment activation script, allow it for the
+current PowerShell process and try again:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\.venv\Scripts\Activate.ps1
+```
+
+## Pygame installation error with Python 3.14
+
+Installing `pygame==2.6.1` with Python 3.14 on Windows may produce errors such
+as:
+
+```text
+ModuleNotFoundError: No module named 'distutils.msvccompiler'
+ModuleNotFoundError: No module named 'setuptools._distutils.msvccompiler'
+ERROR: Failed to build 'pygame' when getting requirements to build wheel
+```
+
+This happens because Pygame 2.6.1 does not provide a compatible Windows wheel
+for Python 3.14. Pip downloads the source archive and attempts to compile
+Pygame locally, but its build process is not compatible with that Python
+environment.
+
+Use the Python 3.12 virtual environment described above instead of installing
+additional SDL or Visual C++ build dependencies.
+
+In VS Code, run `Python: Select Interpreter` from the Command Palette and
+select:
+
+```text
+.\.venv\Scripts\python.exe
+```
 
 # Control
 

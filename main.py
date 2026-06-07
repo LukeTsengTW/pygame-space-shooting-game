@@ -6,6 +6,8 @@ from config import *
 from enemy import Enemy, Enemy_1, Enemy_2, Enemy_3, Enemy_4, Enemy_5, Enemy_6, Enemy_7, Enemy_8, Enemy_9, Enemy_10, Enemy_11, Enemy_12, Enemy_13, Enemy_14, Enemy_15, Boss_1, Boss_2, Boss_3
 from item import Item_1, Item_2
 from explosion import Explosion_1, Explosion_2, Explosion_3, Explosion_4, Explosion_5, Explosion_6, Explosion_7, Explosion_8, Explosion_9, Explosion_10, Explosion_11, Explosion_12, Explosion_13, Explosion_14, Explosion_15, Explosion_16, Explosion_17, Explosion_18
+from level_progress import can_select_level, unlocked_level_after_clear
+from opening_skip import OpeningSkipState, is_opening_skip_input
 from player import Player
 from shared import enemy_bullets, enemies, all_sprites, bullets
 
@@ -32,7 +34,8 @@ font = pygame.font.Font('font.ttf', 36)
 clock = pygame.time.Clock()
 
 hard_level = 1
-level = 1
+level = 3
+highest_unlocked_level = level
 
 is_complete_game = False
 
@@ -262,7 +265,7 @@ def chose_level():
     while chose_level_running:
         screen.fill((0, 0, 0))
         for i in range(1, 16):
-            if i <= level:
+            if can_select_level(i, highest_unlocked_level):
                 button_color = (0, 200, 0)  # Green for current level
             else:
                 button_color = (200, 0, 0)  # Red for locked levels
@@ -283,7 +286,7 @@ def chose_level():
                 for i in range(1, 16):
                     button = pygame.Rect((SCREEN_WIDTH - 200) // 2, 50 * i, 200, 40)
                     if button.collidepoint((mx, my)):
-                        if i <= level:
+                        if can_select_level(i, highest_unlocked_level):
                             play_music("music/battle_in_the_stars.ogg")
                             level = i
                             chose_level_running = False
@@ -616,31 +619,91 @@ def display_text(text, value, color, position):
     rendered_text = font.render('{}: {}'.format(text, value), True, color)
     screen.blit(rendered_text, position)
 
-def display_text_word_by_word(text, position, delay=70):
+OPENING_SKIP_PROMPT = '再次點擊任意鍵跳過'
+
+
+def draw_opening_skip_prompt(skip_state):
+    if skip_state.prompt_visible:
+        draw_text(
+            OPENING_SKIP_PROMPT,
+            font,
+            (180, 180, 180),
+            screen,
+            SCREEN_WIDTH // 2,
+            SCREEN_HEIGHT - 50,
+        )
+
+
+def process_opening_events(skip_state):
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+        if is_opening_skip_input(
+            event.type,
+            pygame.KEYDOWN,
+            pygame.MOUSEBUTTONDOWN,
+        ) and skip_state.press_key():
+            return True
+
+    return False
+
+
+def wait_during_opening(duration, skip_state, draw_frame):
+    end_time = pygame.time.get_ticks() + duration
+    while pygame.time.get_ticks() < end_time:
+        if process_opening_events(skip_state):
+            return True
+
+        draw_frame()
+        draw_opening_skip_prompt(skip_state)
+        pygame.display.update()
+        clock.tick(60)
+
+    return False
+
+
+def draw_opening_text(text, position):
+    screen.fill((0, 0, 0))
+    text_surface = font.render(text, True, (255, 255, 255))
+    text_rect = text_surface.get_rect(center=position)
+    screen.blit(text_surface, text_rect.topleft)
+
+
+def display_text_word_by_word(text, position, skip_state, delay=70):
     rendered_text = ''
     text_sound_effect.play()
     for word in text:
-        screen.fill((0, 0, 0)) 
         rendered_text += word
-        text_surface = font.render(rendered_text, True, (255, 255, 255))
-        text_rect = text_surface.get_rect(center=position)
-        screen.blit(text_surface, text_rect.topleft)
-        pygame.display.update()
-        pygame.time.wait(delay)
+        if wait_during_opening(
+            delay,
+            skip_state,
+            lambda current_text=rendered_text: draw_opening_text(current_text, position),
+        ):
+            text_sound_effect.stop()
+            return True
+
+    return False
 
 def display_opening_screen(texts, delay=500):
+    skip_state = OpeningSkipState()
     pygame.mixer.music.load('music/skyfire_title_screen.ogg')
     pygame.mixer.music.play()
     pygame.mixer.music.set_volume(0.3)
     for text in texts:
-        screen.fill((0, 0, 0))
-        display_text_word_by_word(text, (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
+        text_position = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
+        if display_text_word_by_word(text, text_position, skip_state):
+            pygame.mixer.music.stop()
+            return
+
         text_sound_effect.stop()
-        pygame.time.wait(delay)
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
+        if wait_during_opening(
+            delay,
+            skip_state,
+            lambda current_text=text: draw_opening_text(current_text, text_position),
+        ):
+            pygame.mixer.music.stop()
+            return
     
     text_sound_effect.stop()
     
@@ -650,30 +713,36 @@ def display_opening_screen(texts, delay=500):
     text_rect = text_surface.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
     
     for alpha in range(0, 256, 10):
-        text_surface.set_alpha(alpha)
-        screen.fill((0, 0, 0))
-        screen.blit(text_surface, text_rect)
-        pygame.display.update()
-        pygame.time.wait(100)
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-    
-    pygame.time.wait(3000)
-    
-    for alpha in range(255, -1, -10):
-        text_surface.set_alpha(alpha)
-        screen.fill((0, 0, 0))
-        screen.blit(text_surface, text_rect)
-        pygame.display.update()
-        pygame.time.wait(100)
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
+        def draw_credit_fade_in(current_alpha=alpha):
+            text_surface.set_alpha(current_alpha)
+            screen.fill((0, 0, 0))
+            screen.blit(text_surface, text_rect)
 
-    pygame.time.wait(1000)
+        if wait_during_opening(100, skip_state, draw_credit_fade_in):
+            pygame.mixer.music.stop()
+            return
+    
+    def draw_credit():
+        text_surface.set_alpha(255)
+        screen.fill((0, 0, 0))
+        screen.blit(text_surface, text_rect)
+
+    if wait_during_opening(3000, skip_state, draw_credit):
+        pygame.mixer.music.stop()
+        return
+
+    for alpha in range(255, -1, -10):
+        def draw_credit_fade_out(current_alpha=alpha):
+            text_surface.set_alpha(current_alpha)
+            screen.fill((0, 0, 0))
+            screen.blit(text_surface, text_rect)
+
+        if wait_during_opening(100, skip_state, draw_credit_fade_out):
+            pygame.mixer.music.stop()
+            return
+
+    if wait_during_opening(1000, skip_state, lambda: screen.fill((0, 0, 0))):
+        pygame.mixer.music.stop()
 
 texts = [
     'Earthlings from parallel universes', 
@@ -845,6 +914,7 @@ while running:
     
     if score > 100 + (level * 10) * 9: # 100 + (level * 10) * 9
         action = stage_clear_screen(level, score)
+        highest_unlocked_level = unlocked_level_after_clear(highest_unlocked_level, level)
         if action == 'next':
             reset_enemies()
             level += 1
