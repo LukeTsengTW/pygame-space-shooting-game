@@ -40,3 +40,13 @@ class ScrollingBackgroundTests(unittest.TestCase):
             screen.calls,
             [(surface, (0, -1436)), (surface, (0, 100))],
         )
+
+    def test_set_surface_preserves_scroll_phase(self):
+        first = FakeSurface(1000)
+        second = FakeSurface(2000)
+        scroller = ScrollingBackground(first, speed=2)
+        scroller.offset = 250
+
+        scroller.set_surface(second)
+
+        self.assertEqual(scroller.offset, 500)

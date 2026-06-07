@@ -5,8 +5,10 @@ class ScrollingBackground:
         self.offset = 0
 
     def set_surface(self, surface):
+        old_height = self.surface.get_height()
+        phase = self.offset / old_height if old_height else 0
         self.surface = surface
-        self.offset %= self.surface.get_height()
+        self.offset = phase * self.surface.get_height()
 
     def advance(self):
         self.offset = (self.offset + self.speed) % self.surface.get_height()

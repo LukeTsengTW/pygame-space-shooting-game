@@ -1,6 +1,7 @@
 import sys
 import random
 from itertools import chain
+from background import ScrollingBackground
 from config import *
 from enemy import Enemy, Enemy_1, Enemy_2, Enemy_3, Enemy_4, Enemy_5, Enemy_6, Enemy_7, Enemy_8, Enemy_9, Enemy_10, Enemy_11, Enemy_12, Enemy_13, Enemy_14, Enemy_15, Boss_1, Boss_2, Boss_3
 from item import Item_1, Item_2
@@ -36,11 +37,7 @@ level = 1
 is_complete_game = False
 
 backgrounds = [pygame.image.load(f'img/background/lv{i}_background.jpg') for i in range(1, 21)]
-background = backgrounds[0]
-background_bottom = backgrounds[0]
-background_rect = background.get_rect()
-background_rect_bottom = background_bottom.get_rect()
-background_rect_bottom.top = background_rect.bottom
+gameplay_background = ScrollingBackground(backgrounds[0], speed=1)
 
 score = 0 
 running = True 
@@ -84,22 +81,14 @@ def setting():
     button_1 = pygame.Rect((SCREEN_WIDTH - 550) // 2, (SCREEN_HEIGHT - button_height) // 2 - 180, 550, button_height)
     button_2 = pygame.Rect((SCREEN_WIDTH - button_width) // 2, (SCREEN_HEIGHT - button_height) // 2 + 60, button_width, button_height)
 
-    background = pygame.image.load(f'img/background/setting_background.jpg')
-    background_bottom = background
-    background_rect = background.get_rect()
-    background_rect_bottom = background_bottom.get_rect()
-    background_rect_bottom.top = background_rect.bottom
+    setting_background = ScrollingBackground(
+        pygame.image.load('img/background/setting_background.jpg'),
+        speed=2,
+    )
 
     while setting_running:
-        background_rect.move_ip(0, 2)
-        background_rect_bottom.move_ip(0, 2)
-        if background_rect.top >= SCREEN_HEIGHT:
-            background_rect.bottom = background_rect_bottom.top
-        if background_rect_bottom.top >= SCREEN_HEIGHT:
-            background_rect_bottom.bottom = background_rect.top
-
-        screen.blit(background, background_rect)
-        screen.blit(background_bottom, background_rect_bottom)
+        setting_background.advance()
+        setting_background.draw(screen)
 
         draw_text('Setting', font, (255, 255, 255), screen, SCREEN_WIDTH/2, 150)
 
@@ -153,22 +142,14 @@ def upgrade_UI():
     global BULLET_SPEED, max_lives, damage_level, bullet_speed_level, live_level, damage_level_need_coin, bullet_speed_level_need_coin, live_level_need_coin
     upgrade_UI_running = True
 
-    background = pygame.image.load(f'img/background/upgrade_background.jpg')
-    background_bottom = background
-    background_rect = background.get_rect()
-    background_rect_bottom = background_bottom.get_rect()
-    background_rect_bottom.top = background_rect.bottom
+    upgrade_background = ScrollingBackground(
+        pygame.image.load('img/background/upgrade_background.jpg'),
+        speed=2,
+    )
 
     while upgrade_UI_running:
-        background_rect.move_ip(0, 2)
-        background_rect_bottom.move_ip(0, 2)
-        if background_rect.top >= SCREEN_HEIGHT:
-            background_rect.bottom = background_rect_bottom.top
-        if background_rect_bottom.top >= SCREEN_HEIGHT:
-            background_rect_bottom.bottom = background_rect.top
-
-        screen.blit(background, background_rect)
-        screen.blit(background_bottom, background_rect_bottom)
+        upgrade_background.advance()
+        upgrade_background.draw(screen)
 
         draw_text('Upgrade Menu', font, (255, 255, 255), screen, SCREEN_WIDTH/2, 150)
 
@@ -367,22 +348,14 @@ def main_menu():
     button_actions = [chose_level, upgrade_UI, setting, sys.exit, credits, chose_hard_level]
     buttons = [pygame.Rect((SCREEN_WIDTH - button_width) // 2, (SCREEN_HEIGHT - button_height) // 2 - 240 + i * 120, button_width, button_height) for i in range(len(button_texts))]
 
-    background = pygame.image.load(f'img/background/menu_background.jpg')
-    background_bottom = background
-    background_rect = background.get_rect()
-    background_rect_bottom = background_bottom.get_rect()
-    background_rect_bottom.top = background_rect.bottom
+    menu_background = ScrollingBackground(
+        pygame.image.load('img/background/menu_background.jpg'),
+        speed=2,
+    )
 
     while main_running:
-        background_rect.move_ip(0, 2)
-        background_rect_bottom.move_ip(0, 2)
-        if background_rect.top >= SCREEN_HEIGHT:
-            background_rect.bottom = background_rect_bottom.top
-        if background_rect_bottom.top >= SCREEN_HEIGHT:
-            background_rect_bottom.bottom = background_rect.top
-
-        screen.blit(background, background_rect)
-        screen.blit(background_bottom, background_rect_bottom)
+        menu_background.advance()
+        menu_background.draw(screen)
         draw_text('Main Menu', font, (255, 255, 255), screen, SCREEN_WIDTH // 2, 100)
 
         mx, my = pygame.mouse.get_pos()
@@ -770,16 +743,13 @@ while running:
 
     all_sprites.update(pressed_keys, mouse_pos)
 
-    background_rect.move_ip(0, 1)
-    background_rect_bottom.move_ip(0, 1) 
+    if level <= len(backgrounds):
+        active_background = backgrounds[level - 1]
+        if gameplay_background.surface is not active_background:
+            gameplay_background.set_surface(active_background)
 
-    if background_rect.top >= SCREEN_HEIGHT:
-        background_rect.bottom = background_rect_bottom.top
-    if background_rect_bottom.top >= SCREEN_HEIGHT:
-        background_rect_bottom.bottom = background_rect.top
-
-    screen.blit(background, background_rect)
-    screen.blit(background_bottom, background_rect_bottom)
+    gameplay_background.advance()
+    gameplay_background.draw(screen)
 
     for boss in enemies_p['enemies_18']:
         draw_health_bar(boss, screen)
@@ -897,10 +867,6 @@ while running:
             player.rect.center = (SCREEN_WIDTH/2, SCREEN_HEIGHT-30)
             player.lives = max_lives
             level_start_time = pygame.time.get_ticks() 
-
-    if level <= len(backgrounds): 
-        background = backgrounds[level - 1]
-        background_bottom = backgrounds[level - 1]
 
     for entity in all_sprites:
         if entity == player:
