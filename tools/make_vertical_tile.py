@@ -43,7 +43,7 @@ def make_vertical_tile(
     image.paste(first_row, (0, height - 1))
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    save_options = {"quality": 92, "subsampling": 0} if output_path.suffix.lower() in {".jpg", ".jpeg"} else {}
+    save_options = {"quality": 100, "subsampling": 0} if output_path.suffix.lower() in {".jpg", ".jpeg"} else {}
     image.save(output_path, **save_options)
 
 
