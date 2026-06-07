@@ -97,6 +97,10 @@ def reset_continue_game():
     score = 0
     level_start_time = pygame.time.get_ticks()
 
+    BOSS_GENERATION_ONCE['enemies_5'] = False
+    BOSS_GENERATION_ONCE['enemies_11'] = False
+    BOSS_GENERATION_ONCE['enemies_18'] = False
+
 current_text = 0 
 def setting():
     global current_text, volume_level
@@ -596,9 +600,6 @@ def pause_menu():
         clock.tick(60)
 
 def stage_clear_screen(level, score):
-    global BOSS_1_GENERATION_ONCE, BOSS_2_GENERATION_ONCE
-    BOSS_1_GENERATION_ONCE = False
-    BOSS_2_GENERATION_ONCE = False
     stage_clear_running = True
     animation_score = 0
     animation_time = 0
