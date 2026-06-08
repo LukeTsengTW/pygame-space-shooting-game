@@ -5,6 +5,8 @@ from itertools import chain
 
 import save_manager
 import support_upgrades
+import config
+import hard_mode
 from background import ScrollingBackground
 from boss_health import BossHealthDisplayState
 from config import *
@@ -594,6 +596,7 @@ def chose_level():
                     if button.collidepoint((mx, my)):
                         if can_select_level(i, highest_unlocked_level):
                             play_music("music/battle_in_the_stars.ogg")
+                            config.is_enter_hard_mode = False
                             level = i
                             chose_level_running = False
                             player.out_of_game = False
@@ -607,7 +610,7 @@ def chose_level():
         clock.tick(60)
 
 def chose_hard_level():
-    global hard_level
+    global hard_level, level
     chose_hard_level_running = True
     level_buttons = level_grid_rects(SCREEN_WIDTH, SCREEN_HEIGHT)
     button_back = pygame.Rect(180, 790, 240, 58)
@@ -667,7 +670,8 @@ def chose_hard_level():
                 for i, button in enumerate(level_buttons, start=1):
                     if button.collidepoint((mx, my)):
                         if is_complete_game and i <= hard_level:
-                            hard_level = i
+                            config.is_enter_hard_mode = True
+                            level = i
                             chose_hard_level_running = False
                             player.out_of_game = False
                             reset_continue_game()
