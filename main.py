@@ -1476,7 +1476,10 @@ while running:
 
     if score > 100 + (level * 10) * 9: # 100 + (level * 10) * 9
         action = stage_clear_screen(level, score)
-        highest_unlocked_level = unlocked_level_after_clear(highest_unlocked_level, level)
+        if config.is_enter_hard_mode:
+            hard_level = unlocked_level_after_clear(hard_level, level)
+        else:
+            highest_unlocked_level = unlocked_level_after_clear(highest_unlocked_level, level)
         autosave()
         if action == 'next':
             reset_enemies()
