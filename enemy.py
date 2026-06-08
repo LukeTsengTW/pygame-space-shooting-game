@@ -292,7 +292,7 @@ class Boss_1(Enemy):
         self.speed = 2 
         self.direction = 1  
 
-        self.maxhp = 50000
+        self.maxhp = self.hp
         apply_hard_boss_cooldowns(self)
 
     def update(self, pressed_keys=None, mouse_pos=None):
@@ -371,7 +371,7 @@ class Boss_2(Enemy):
             3: pygame.transform.rotate(self.original_image, 90)
         }
 
-        self.maxhp = 200000
+        self.maxhp = self.hp
         apply_hard_boss_cooldowns(self)
 
     def update(self, pressed_keys=None, mouse_pos=None):
@@ -517,7 +517,7 @@ class Boss_3(Enemy):
         self.scatter_skill_start_time = 0
         self.condition_met_time = 0
 
-        self.maxhp = 300000
+        self.maxhp = self.hp
         apply_hard_boss_cooldowns(self)
 
     def update(self, pressed_keys=None, mouse_pos=None):
