@@ -60,7 +60,7 @@ def test_save_then_load_round_trips(tmp_path):
 
 def test_save_leaves_no_temp_file(tmp_path):
     path = str(tmp_path / "save.json")
-    save_manager.save_state(save_manager.DEFAULT_STATE, path)
+    assert save_manager.save_state(save_manager.DEFAULT_STATE, path) is True
     leftovers = [name for name in os.listdir(tmp_path) if name != "save.json"]
     assert leftovers == []
 
@@ -71,3 +71,9 @@ def test_save_returns_false_on_error(tmp_path):
     # Parent path is a regular file, so creating a dir/file under it must fail.
     path = str(blocker / "save.json")
     assert save_manager.save_state(save_manager.DEFAULT_STATE, path) is False
+
+
+def test_save_returns_false_on_unserializable_state(tmp_path):
+    path = str(tmp_path / "save.json")
+    assert save_manager.save_state({"bad": object()}, path) is False
+    assert not os.path.exists(path)

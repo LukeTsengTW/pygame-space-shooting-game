@@ -77,7 +77,7 @@ def save_state(state, path=None):
         directory = os.path.dirname(path)
         if directory:
             os.makedirs(directory, exist_ok=True)
-        fd, tmp = tempfile.mkstemp(dir=directory or None, suffix=".tmp")
+        fd, tmp = tempfile.mkstemp(dir=directory or None, suffix=".tmp")  # "" dirname -> None -> system temp dir
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
                 json.dump(state, handle, indent=2)
@@ -87,5 +87,5 @@ def save_state(state, path=None):
                 os.remove(tmp)
             raise
         return True
-    except OSError:
+    except Exception:
         return False
