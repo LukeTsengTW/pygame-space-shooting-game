@@ -1,4 +1,6 @@
 import random
+import config
+import hard_mode
 from config import *
 from shared import enemy_bullets, enemies, all_sprites
 from enemybullet import EnemyBullet_1, EnemyBullet_2, EnemyBullet_3, EnemyBullet_4, EnemyBullet_5, EnemyBullet_6, EnemyBullet_7, EnemyBullet_8, EnemyBullet_9, EnemyBullet_10, EnemyBullet_11, EnemyBullet_12, EnemyBullet_13, EnemyBullet_14, EnemyBullet_15
@@ -23,7 +25,7 @@ class Enemy(pygame.sprite.Sprite):
             self.shield_rect = None
         self.pos_x = float(self.rect.x)
         self.pos_y = float(self.rect.y)
-        self.hp = hp
+        self.hp = hard_mode.scale_hp(hp, config.is_enter_hard_mode)
         self.speed = speed 
         self.invincible = False  
         self.last_update = pygame.time.get_ticks()
@@ -46,25 +48,22 @@ class Enemy(pygame.sprite.Sprite):
             self.kill()
 
 class Enemy_1(Enemy):
-    def __init__(self, is_enter_hard_mode=False):
-        hp = enemy_hp["enemies_1"] * 20 if is_enter_hard_mode else enemy_hp["enemies_1"]
-        super().__init__('img/enemy/lv1_to_5/base/Scout_assets/Scout_frame_1.png', 'img/enemy/lv1_to_5/Shield/Scout_assets/Scout_Shield_frame_', (39.4, 42.8), (37.4, 40.8), 2, hp, 14)
-    
+    def __init__(self):
+        super().__init__('img/enemy/lv1_to_5/base/Scout_assets/Scout_frame_1.png', 'img/enemy/lv1_to_5/Shield/Scout_assets/Scout_Shield_frame_', (39.4, 42.8), (37.4, 40.8), 2, enemy_hp["enemies_1"], 14)
+
     def update(self, pressed_keys=None, mouse_pos=None):
         super().update(EnemyBullet_1, 0.002)
 
 class Enemy_2(Enemy):
-    def __init__(self, is_enter_hard_mode=False):
-        hp = enemy_hp["enemies_2"] * 20 if is_enter_hard_mode else enemy_hp["enemies_2"]
-        super().__init__('img/enemy/lv1_to_5/base/Torpedo_assets/Torpedo_frame_1.png', 'img/enemy/lv1_to_5/Shield/Torpedo_assets/Torpedo_frame_', None, None, 1, hp, 11)
+    def __init__(self):
+        super().__init__('img/enemy/lv1_to_5/base/Torpedo_assets/Torpedo_frame_1.png', 'img/enemy/lv1_to_5/Shield/Torpedo_assets/Torpedo_frame_', None, None, 1, enemy_hp["enemies_2"], 11)
 
     def update(self, pressed_keys=None, mouse_pos=None):
         super().update(EnemyBullet_2, 0.002)
 
 class Enemy_3(Enemy):
-    def __init__(self, is_enter_hard_mode=False):
-        hp = enemy_hp["enemies_3"] * 20 if is_enter_hard_mode else enemy_hp["enemies_3"]
-        super().__init__('img/enemy/lv1_to_5/base/Frigate_assets/Frigate_frame_1.png', 'img/enemy/lv1_to_5/Shield/Frigate_assets/Frigate_Shield_frame_', None, None, 4, hp, 39)
+    def __init__(self):
+        super().__init__('img/enemy/lv1_to_5/base/Frigate_assets/Frigate_frame_1.png', 'img/enemy/lv1_to_5/Shield/Frigate_assets/Frigate_Shield_frame_', None, None, 4, enemy_hp["enemies_3"], 39)
 
     def update(self, pressed_keys=None, mouse_pos=None):
         super().update(EnemyBullet_2, 0.000001)
