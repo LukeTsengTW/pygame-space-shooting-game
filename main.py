@@ -679,11 +679,59 @@ def chose_hard_level():
         pygame.display.update()
         clock.tick(60)
 
+def chose_mode():
+    chose_mode_running = True
+    button_normal = pygame.Rect(155, 360, 290, 64)
+    button_hard = pygame.Rect(155, 460, 290, 64)
+    button_back = pygame.Rect(180, 620, 240, 58)
+    while chose_mode_running:
+        screen.fill(COLORS['navy'])
+        mx, my = pygame.mouse.get_pos()
+        draw_panel(screen, pygame.Rect(95, 210, 410, 500), alpha=235, border=COLORS['cyan'])
+        draw_heading(screen, 'Select Mode', 'CHOOSE YOUR CAMPAIGN', y=110)
+        draw_button(
+            screen,
+            button_normal,
+            'NORMAL MODE',
+            hovered=button_normal.collidepoint((mx, my)),
+            style='primary',
+        )
+        draw_button(
+            screen,
+            button_hard,
+            'HARD MODE',
+            hovered=button_hard.collidepoint((mx, my)),
+            style='danger',
+        )
+        draw_button(
+            screen,
+            button_back,
+            'BACK',
+            hovered=button_back.collidepoint((mx, my)),
+        )
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if button_normal.collidepoint((mx, my)):
+                    chose_mode_running = False
+                    chose_level()
+                if button_hard.collidepoint((mx, my)):
+                    chose_mode_running = False
+                    chose_hard_level()
+                if button_back.collidepoint((mx, my)):
+                    chose_mode_running = False
+                    main_menu()
+        pygame.display.update()
+        clock.tick(60)
+
 def main_menu():
     play_music("music/brave_pilots_menu_screen.ogg")
     main_running = True
-    button_texts = ['Play', 'Upgrade', 'Setting', 'Exit', 'Credits', 'Hard Mode']
-    button_actions = [chose_level, upgrade_UI, setting, sys.exit, credits, chose_hard_level]
+    button_texts = ['Play', 'Upgrade', 'Setting', 'Exit', 'Credits']
+    button_actions = [chose_mode, upgrade_UI, setting, sys.exit, credits]
     buttons = [
         pygame.Rect(155, 220 + i * 88, 290, 58)
         for i in range(len(button_texts))
@@ -700,7 +748,7 @@ def main_menu():
         mx, my = pygame.mouse.get_pos()
         draw_panel(screen, pygame.Rect(115, 145, 370, 655), alpha=226, border=COLORS['cyan'])
         draw_heading(screen, 'Space Shooter', 'TACTICAL FLIGHT COMMAND', y=76)
-        styles = ('primary', 'secondary', 'secondary', 'danger', 'secondary', 'secondary')
+        styles = ('primary', 'secondary', 'secondary', 'danger', 'secondary')
         for button, label, style in zip(buttons, button_texts, styles):
             draw_button(
                 screen,
@@ -718,7 +766,7 @@ def main_menu():
                 if event.button == 1:
                     for idx, button in enumerate(buttons):
                         if button.collidepoint((mx, my)):
-                            if idx == 0 or idx == 5:
+                            if idx == 0:
                                 main_running = False
                             button_actions[idx]()
 
