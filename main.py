@@ -1163,7 +1163,10 @@ def generate_enemy(level, enemy_type, enemy_class, boss=False, Is_support=False)
             play_music('music/death_match_boss_theme.ogg')
     else:
         current_time = pygame.time.get_ticks()
-        if current_time - last_spawn_time >= 50 and random.random() < ENEMY_GENERATION_THRESHOLDS[enemy_type]:
+        spawn_probability = hard_mode.scale_spawn_probability(
+            ENEMY_GENERATION_THRESHOLDS[enemy_type], config.is_enter_hard_mode
+        )
+        if current_time - last_spawn_time >= 50 and random.random() < spawn_probability:
             enemy = enemy_class(enemies) if Is_support else enemy_class()
             enemies_p[enemy_type].add(enemy)
             all_sprites.add(enemy)
@@ -1344,7 +1347,7 @@ while running:
                 pygame.mouse.set_visible(True)
                 pause_menu()
     
-    if pygame.time.get_ticks() - level_start_time > 3000:
+    if pygame.time.get_ticks() - level_start_time > hard_mode.scale_start_delay(3000, config.is_enter_hard_mode):
         if level < 6:
             generate_enemy(level, 'enemies_1', Enemy_1)
             if level > 1:
@@ -1432,6 +1435,11 @@ while running:
         'enemies_16': 3,
         'enemies_17': 5,
         'enemies_18': 5,
+    }
+
+    enemy_damage_values = {
+        key: hard_mode.scale_damage(damage, config.is_enter_hard_mode)
+        for key, damage in enemy_damage_values.items()
     }
 
     enemy_groups = [(enemies_p[key], damage) for key, damage in enemy_damage_values.items()]
