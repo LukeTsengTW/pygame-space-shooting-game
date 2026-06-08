@@ -26,7 +26,7 @@ DEFAULT_STATE = {
 
 
 def resolve_save_path(override=None):
-    if override:
+    if override is not None:
         return override
     appdata = os.environ.get("APPDATA")
     if appdata:
@@ -60,7 +60,8 @@ def _merge(default, stored):
 
 
 def load_state(path=None):
-    path = path or resolve_save_path()
+    if path is None:
+        path = resolve_save_path()
     try:
         with open(path, "r", encoding="utf-8") as handle:
             data = json.load(handle)

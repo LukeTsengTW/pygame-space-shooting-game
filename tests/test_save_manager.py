@@ -15,9 +15,10 @@ def test_resolve_path_uses_appdata(monkeypatch):
     assert save_manager.resolve_save_path() == expected
 
 
-def test_resolve_path_falls_back_without_appdata(monkeypatch):
+def test_resolve_path_falls_back_without_appdata(monkeypatch, tmp_path):
     monkeypatch.delenv("APPDATA", raising=False)
-    assert save_manager.resolve_save_path() == os.path.join(os.getcwd(), "savegame.json")
+    monkeypatch.chdir(tmp_path)
+    assert save_manager.resolve_save_path() == os.path.join(str(tmp_path), "savegame.json")
 
 
 def test_corrupt_json_returns_defaults(tmp_path):
