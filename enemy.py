@@ -263,6 +263,16 @@ class Enemy_15(Enemy):
     def update(self, pressed_keys=None, mouse_pos=None):
         super().update(EnemyBullet_13, 0.03)
 
+def apply_hard_boss_cooldowns(boss):
+    """Halve whichever skill-cooldown attributes a boss defines (hard mode)."""
+    for attr in ('laser_cooldown', 'scatter_cooldown',
+                 'rapid_fire_cooldown', 'scatter_skill_cooldown'):
+        if hasattr(boss, attr):
+            setattr(boss, attr,
+                    hard_mode.scale_boss_cooldown(getattr(boss, attr),
+                                                  config.is_enter_hard_mode))
+
+
 class Boss_1(Enemy):
     def __init__(self):
         super().__init__('img/enemy/lv1_to_5/base/Battlecruiser_assets/Battlecruiser_frame_1.png', None, None, (108,132), 2, enemy_hp["enemies_5"])
@@ -283,18 +293,19 @@ class Boss_1(Enemy):
         self.direction = 1  
 
         self.maxhp = 50000
-    
+        apply_hard_boss_cooldowns(self)
+
     def update(self, pressed_keys=None, mouse_pos=None):
-        self.move_sideways() 
+        self.move_sideways()
         self.attack()
         if self.hp <= 0:
             self.kill()
-    
+
     def move_sideways(self):
         if self.rect.right > SCREEN_WIDTH or self.rect.left < 0:
             self.direction *= -1
         self.rect.move_ip(self.speed * self.direction, 0)
-    
+
     def attack(self):
         now = pygame.time.get_ticks()
         if now - self.attack_timer >= self.laser_cooldown:
@@ -361,6 +372,7 @@ class Boss_2(Enemy):
         }
 
         self.maxhp = 200000
+        apply_hard_boss_cooldowns(self)
 
     def update(self, pressed_keys=None, mouse_pos=None):
         self.move_sideways()
@@ -506,6 +518,7 @@ class Boss_3(Enemy):
         self.condition_met_time = 0
 
         self.maxhp = 300000
+        apply_hard_boss_cooldowns(self)
 
     def update(self, pressed_keys=None, mouse_pos=None):
         self.move_sideways()
