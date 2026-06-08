@@ -44,3 +44,30 @@ def test_wrong_types_fall_back_to_defaults(tmp_path):
     path.write_text(json.dumps({"economy": {"coin": "lots"}}), encoding="utf-8")
     state = save_manager.load_state(str(path))
     assert state["economy"]["coin"] == 0
+
+
+def test_save_then_load_round_trips(tmp_path):
+    path = str(tmp_path / "sub" / "save.json")  # parent dir does not exist yet
+    state = save_manager.load_state(path)
+    state["progression"]["highest_unlocked_level"] = 9
+    state["progression"]["is_complete_game"] = True
+    state["economy"]["coin"] = 12345
+    state["economy"]["damage_level"] = 4
+    state["settings"]["volume_level"] = 0.8
+    assert save_manager.save_state(state, path) is True
+    assert save_manager.load_state(path) == state
+
+
+def test_save_leaves_no_temp_file(tmp_path):
+    path = str(tmp_path / "save.json")
+    save_manager.save_state(save_manager.DEFAULT_STATE, path)
+    leftovers = [name for name in os.listdir(tmp_path) if name != "save.json"]
+    assert leftovers == []
+
+
+def test_save_returns_false_on_error(tmp_path):
+    blocker = tmp_path / "blocker"
+    blocker.write_text("i am a file", encoding="utf-8")
+    # Parent path is a regular file, so creating a dir/file under it must fail.
+    path = str(blocker / "save.json")
+    assert save_manager.save_state(save_manager.DEFAULT_STATE, path) is False

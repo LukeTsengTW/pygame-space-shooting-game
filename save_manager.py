@@ -68,3 +68,24 @@ def load_state(path=None):
     except (OSError, ValueError):
         data = {}
     return _merge(DEFAULT_STATE, data)
+
+
+def save_state(state, path=None):
+    if path is None:
+        path = resolve_save_path()
+    try:
+        directory = os.path.dirname(path)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(dir=directory or None, suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                json.dump(state, handle, indent=2)
+            os.replace(tmp, path)
+        except BaseException:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+            raise
+        return True
+    except OSError:
+        return False
