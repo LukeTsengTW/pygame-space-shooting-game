@@ -32,3 +32,28 @@ def test_hard_boss_cooldown_is_halved_and_int():
 
 def test_hard_start_delay_is_halved():
     assert hard_mode.scale_start_delay(3000, True) == 1500
+
+
+def test_normal_mode_reward_scalers_are_identity():
+    assert hard_mode.scale_clear_threshold(1000, False) == 1000
+    assert hard_mode.scale_kill_score(2, False) == 2
+    assert hard_mode.scale_coin(20, False) == 20
+
+
+def test_hard_clear_threshold_is_doubled():
+    assert hard_mode.scale_clear_threshold(1000, True) == 2000
+    assert hard_mode.scale_clear_threshold(1810, True) == 3620
+
+
+def test_hard_kill_score_is_1_5x_and_int():
+    assert hard_mode.scale_kill_score(10, True) == 15
+    result = hard_mode.scale_kill_score(2, True)
+    assert result == 3
+    assert isinstance(result, int)
+
+
+def test_hard_coin_is_1_75x_and_int():
+    assert hard_mode.scale_coin(20, True) == 35
+    result = hard_mode.scale_coin(40, True)
+    assert result == 70
+    assert isinstance(result, int)

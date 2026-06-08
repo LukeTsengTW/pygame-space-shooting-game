@@ -1071,11 +1071,11 @@ def check_bullet_hit(bullets, enemies, score_increment, drop_rate_1, drop_rate_2
                 enemy.hp -= getattr(bullet, "damage", player.damage)
                 if enemy.hp <= 0:
                     boom_sound_effect.play()
-                    player.coin += gain_coin
+                    player.coin += hard_mode.scale_coin(gain_coin, config.is_enter_hard_mode)
                     enemies.remove(enemy)
                     explosion = Explosion(enemy.rect.center)
                     all_sprites.add(explosion)
-                    score += score_increment
+                    score += hard_mode.scale_kill_score(score_increment, config.is_enter_hard_mode)
                     if level >= 2:
                         if random.random() < drop_rate_1:
                             item1 = Item_1(enemy.rect.center)
@@ -1094,8 +1094,8 @@ def destroy_enemy_for_reward(enemy, score_increment, Explosion, gain_coin):
         return
 
     boom_sound_effect.play()
-    player.coin += gain_coin
-    score += score_increment
+    player.coin += hard_mode.scale_coin(gain_coin, config.is_enter_hard_mode)
+    score += hard_mode.scale_kill_score(score_increment, config.is_enter_hard_mode)
     explosion = Explosion(enemy.rect.center)
     all_sprites.add(explosion)
     enemy.kill()
@@ -1524,7 +1524,7 @@ while running:
             autosave()
             all_levels_completed_screen()
 
-    if score > 100 + (level * 10) * 9: # 100 + (level * 10) * 9
+    if score > hard_mode.scale_clear_threshold(100 + (level * 10) * 9, config.is_enter_hard_mode): # 100 + (level * 10) * 9
         action = stage_clear_screen(level, score)
         if config.is_enter_hard_mode:
             hard_level = unlocked_level_after_clear(hard_level, level)

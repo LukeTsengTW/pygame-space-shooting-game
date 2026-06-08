@@ -7,6 +7,9 @@ HARD_DAMAGE_MULTIPLIER = 3
 HARD_SPAWN_RATE_MULTIPLIER = 2
 HARD_START_DELAY_FACTOR = 0.5
 HARD_BOSS_COOLDOWN_FACTOR = 0.5
+HARD_CLEAR_THRESHOLD_MULTIPLIER = 2
+HARD_KILL_SCORE_MULTIPLIER = 1.5
+HARD_COIN_MULTIPLIER = 1.75
 
 
 def scale_hp(base_hp, hard):
@@ -27,3 +30,15 @@ def scale_boss_cooldown(cooldown, hard):
 
 def scale_start_delay(delay, hard):
     return delay * HARD_START_DELAY_FACTOR if hard else delay
+
+
+def scale_clear_threshold(threshold, hard):
+    return threshold * HARD_CLEAR_THRESHOLD_MULTIPLIER if hard else threshold
+
+
+def scale_kill_score(score, hard):
+    return round(score * HARD_KILL_SCORE_MULTIPLIER) if hard else score
+
+
+def scale_coin(coin, hard):
+    return round(coin * HARD_COIN_MULTIPLIER) if hard else coin
