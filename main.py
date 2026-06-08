@@ -878,6 +878,53 @@ def all_levels_completed_screen():
                     main_menu()
                     all_levels_completed_running = False
 
+def hard_campaign_completed_screen():
+    play_music('music/victory_tune.ogg')
+    hard_complete_running = True
+    player.out_of_game = True
+    pygame.mouse.set_visible(True)
+    result_background = screen.copy()
+    button_return = pygame.Rect(120, 520, 360, 64)
+    while hard_complete_running:
+        screen.blit(result_background, (0, 0))
+        mx, my = pygame.mouse.get_pos()
+        modal = draw_modal_backdrop(screen, pygame.Rect(60, 215, 480, 470))
+        draw_ui_text(screen, 'ELITE CAMPAIGN COMPLETE', 28, COLORS['danger_hover'], (modal.centerx, 305))
+        draw_ui_text(
+            screen,
+            'All elite missions cleared.',
+            19,
+            COLORS['text'],
+            (modal.centerx, 375),
+        )
+        draw_ui_text(
+            screen,
+            'You are humanity\'s finest.',
+            19,
+            COLORS['gold'],
+            (modal.centerx, 415),
+        )
+        draw_button(
+            screen,
+            button_return,
+            '1  /  RETURN TO COMMAND',
+            hovered=button_return.collidepoint((mx, my)),
+            style='danger',
+        )
+        pygame.display.flip()
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_1:
+                    main_menu()
+                    hard_complete_running = False
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if button_return.collidepoint((mx, my)):
+                    main_menu()
+                    hard_complete_running = False
+
 def pause_menu():
     pause_running = True
     paused_background = screen.copy()
@@ -1470,9 +1517,12 @@ while running:
         game_over_screen()
     
     if level > 15:
-        is_complete_game = True
-        autosave()
-        all_levels_completed_screen()
+        if config.is_enter_hard_mode:
+            hard_campaign_completed_screen()
+        else:
+            is_complete_game = True
+            autosave()
+            all_levels_completed_screen()
 
     if score > 100 + (level * 10) * 9: # 100 + (level * 10) * 9
         action = stage_clear_screen(level, score)
