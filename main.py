@@ -386,7 +386,7 @@ def get_upgrade_rows():
 
 def draw_vertical_scrollbar(surface, track_rect, scroll_offset, max_scroll):
     if max_scroll <= 0:
-        return
+        return None
 
     track_rect = pygame.Rect(track_rect)
     pygame.draw.rect(surface, COLORS["track"], track_rect, border_radius=track_rect.width // 2)
@@ -395,6 +395,7 @@ def draw_vertical_scrollbar(surface, track_rect, scroll_offset, max_scroll):
     thumb_y = track_rect.y + round((scroll_offset / max_scroll) * travel)
     thumb_rect = pygame.Rect(track_rect.x, thumb_y, track_rect.width, thumb_height)
     pygame.draw.rect(surface, COLORS["cyan"], thumb_rect, border_radius=track_rect.width // 2)
+    return thumb_rect
 
 
 def buy_upgrade(upgrade_key):
@@ -439,6 +440,8 @@ def upgrade_UI():
     viewport_rect = pygame.Rect(58, 165, 484, 510)
     scrollbar_rect = pygame.Rect(548, viewport_rect.y, 8, viewport_rect.height)
     back_button = pygame.Rect(180, 715, 240, 58)
+    dragging_scrollbar = False
+    drag_grab_dy = 0
 
     upgrade_background = ScrollingBackground(
         pygame.image.load('img/background/upgrade_background.jpg'),
@@ -485,7 +488,7 @@ def upgrade_UI():
                 subtitle=row["subtitle"],
             )
         screen.set_clip(previous_clip)
-        draw_vertical_scrollbar(screen, scrollbar_rect, scroll_offset, max_scroll)
+        thumb_rect = draw_vertical_scrollbar(screen, scrollbar_rect, scroll_offset, max_scroll)
 
         draw_button(
             screen,
@@ -506,12 +509,33 @@ def upgrade_UI():
                 if event.button == 5:
                     scroll_offset = clamp(scroll_offset + 44, 0, max_scroll)
                 if event.button == 1:
-                    for button, row in row_buttons:
-                        if viewport_rect.collidepoint((mx, my)) and button.collidepoint((mx, my)):
-                            buy_upgrade(row["key"])
-                            break
-                    if back_button.collidepoint((mx, my)):
-                        upgrade_UI_running = False
+                    if thumb_rect is not None and thumb_rect.collidepoint((mx, my)):
+                        dragging_scrollbar = True
+                        drag_grab_dy = my - thumb_rect.y
+                    else:
+                        for button, row in row_buttons:
+                            if viewport_rect.collidepoint((mx, my)) and button.collidepoint((mx, my)):
+                                buy_upgrade(row["key"])
+                                break
+                        if back_button.collidepoint((mx, my)):
+                            upgrade_UI_running = False
+            if event.type == pygame.MOUSEBUTTONUP:
+                if event.button == 1:
+                    dragging_scrollbar = False
+            if event.type == pygame.MOUSEMOTION:
+                if dragging_scrollbar and thumb_rect is not None and max_scroll > 0:
+                    travel = scrollbar_rect.height - thumb_rect.height
+                    if travel > 0:
+                        new_thumb_y = clamp(
+                            event.pos[1] - drag_grab_dy,
+                            scrollbar_rect.y,
+                            scrollbar_rect.y + travel,
+                        )
+                        scroll_offset = clamp(
+                            round((new_thumb_y - scrollbar_rect.y) / travel * max_scroll),
+                            0,
+                            max_scroll,
+                        )
 
         pygame.display.update()
         clock.tick(60)
