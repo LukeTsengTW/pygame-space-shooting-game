@@ -72,6 +72,8 @@ highest_unlocked_level = level
 
 is_complete_game = False
 
+opening_seen = False
+
 backgrounds = [pygame.image.load(f'img/background/lv{i}_background.jpg') for i in range(1, 21)]
 gameplay_background = ScrollingBackground(backgrounds[0], speed=1)
 
@@ -136,6 +138,7 @@ def gather_save_state():
         "settings": {
             "volume_level": volume_level,
             "control_mode": player.control,
+            "opening_seen": opening_seen,
         },
     }
 
@@ -144,7 +147,7 @@ def apply_save_state(data):
     global highest_unlocked_level, hard_level, is_complete_game
     global damage_level, bullet_speed_level, live_level, sentry_gun_level, tactical_support_level
     global damage_level_need_coin, bullet_speed_level_need_coin, live_level_need_coin
-    global max_lives, BULLET_SPEED, volume_level
+    global max_lives, BULLET_SPEED, volume_level, opening_seen
 
     progression = data["progression"]
     economy = data["economy"]
@@ -174,6 +177,8 @@ def apply_save_state(data):
 
     volume_level = settings["volume_level"]
     pygame.mixer.music.set_volume(volume_level)
+
+    opening_seen = settings["opening_seen"]
 
 
 def autosave():
@@ -726,8 +731,11 @@ def game_over_screen():
     player.out_of_game = True
     pygame.mouse.set_visible(True)
     result_background = screen.copy()
+    button_return = pygame.Rect(125, 445, 350, 62)
+    button_exit = pygame.Rect(125, 535, 350, 62)
     while game_over_running:
         screen.blit(result_background, (0, 0))
+        mx, my = pygame.mouse.get_pos()
         modal = draw_modal_backdrop(screen, pygame.Rect(70, 225, 460, 450))
         draw_ui_text(screen, 'MISSION FAILED', 38, COLORS['danger_hover'], (modal.centerx, 315))
         draw_ui_text(
@@ -739,14 +747,16 @@ def game_over_screen():
         )
         draw_button(
             screen,
-            pygame.Rect(125, 445, 350, 62),
+            button_return,
             '1  /  RETURN TO COMMAND',
+            hovered=button_return.collidepoint((mx, my)),
             style='primary',
         )
         draw_button(
             screen,
-            pygame.Rect(125, 535, 350, 62),
+            button_exit,
             '2  /  EXIT GAME',
+            hovered=button_exit.collidepoint((mx, my)),
             style='danger',
         )
         pygame.display.flip()
@@ -761,6 +771,13 @@ def game_over_screen():
                 if event.key == pygame.K_2:
                     pygame.quit()
                     sys.exit()
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if button_return.collidepoint((mx, my)):
+                    main_menu()
+                    game_over_running = False
+                if button_exit.collidepoint((mx, my)):
+                    pygame.quit()
+                    sys.exit()
 
 def all_levels_completed_screen():
     play_music('music/victory_tune.ogg')
@@ -768,8 +785,10 @@ def all_levels_completed_screen():
     player.out_of_game = True
     pygame.mouse.set_visible(True)
     result_background = screen.copy()
+    button_return = pygame.Rect(120, 520, 360, 64)
     while all_levels_completed_running:
         screen.blit(result_background, (0, 0))
+        mx, my = pygame.mouse.get_pos()
         modal = draw_modal_backdrop(screen, pygame.Rect(60, 215, 480, 470))
         draw_ui_text(screen, 'CAMPAIGN COMPLETE', 34, COLORS['cyan_hover'], (modal.centerx, 305))
         draw_ui_text(
@@ -788,8 +807,9 @@ def all_levels_completed_screen():
         )
         draw_button(
             screen,
-            pygame.Rect(120, 520, 360, 64),
+            button_return,
             '1  /  RETURN TO COMMAND',
+            hovered=button_return.collidepoint((mx, my)),
             style='primary',
         )
         pygame.display.flip()
@@ -797,8 +817,12 @@ def all_levels_completed_screen():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-            if event.type is pygame.KEYDOWN:
+            if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_1:
+                    main_menu()
+                    all_levels_completed_running = False
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if button_return.collidepoint((mx, my)):
                     main_menu()
                     all_levels_completed_running = False
 
@@ -1251,7 +1275,10 @@ texts = [
 apply_save_state(save_manager.load_state())
 atexit.register(autosave)
 
-display_opening_screen(texts)
+if not opening_seen:
+    display_opening_screen(texts)
+    opening_seen = True
+    autosave()
 
 main_menu()
 
@@ -1383,9 +1410,9 @@ while running:
         game_over_screen()
     
     if level > 15:
-        all_levels_completed_screen()
         is_complete_game = True
         autosave()
+        all_levels_completed_screen()
 
     if score > 100 + (level * 10) * 9: # 100 + (level * 10) * 9
         action = stage_clear_screen(level, score)

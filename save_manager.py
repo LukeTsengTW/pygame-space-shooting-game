@@ -23,6 +23,7 @@ DEFAULT_STATE = {
     "settings": {
         "volume_level": 0.5,
         "control_mode": 0,
+        "opening_seen": False,
     },
 }
 
