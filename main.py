@@ -1,6 +1,9 @@
+import atexit
 import sys
 import random
 from itertools import chain
+
+import save_manager
 from background import ScrollingBackground
 from boss_health import BossHealthDisplayState
 from config import *
@@ -76,6 +79,66 @@ def draw_text(text, font, color, surface, x, y):
     text_obj = font.render(text, 1, color)
     text_rect = text_obj.get_rect(center=(x, y))
     surface.blit(text_obj, text_rect)
+
+
+def gather_save_state():
+    return {
+        "version": 1,
+        "progression": {
+            "highest_unlocked_level": highest_unlocked_level,
+            "is_complete_game": is_complete_game,
+            "hard_level": hard_level,
+        },
+        "economy": {
+            "coin": player.coin,
+            "damage_level": damage_level,
+            "bullet_speed_level": bullet_speed_level,
+            "live_level": live_level,
+        },
+        "settings": {
+            "volume_level": volume_level,
+            "control_mode": player.control,
+        },
+    }
+
+
+def apply_save_state(data):
+    global highest_unlocked_level, hard_level, is_complete_game
+    global damage_level, bullet_speed_level, live_level
+    global damage_level_need_coin, bullet_speed_level_need_coin, live_level_need_coin
+    global max_lives, BULLET_SPEED, volume_level
+
+    progression = data["progression"]
+    economy = data["economy"]
+    settings = data["settings"]
+
+    highest_unlocked_level = progression["highest_unlocked_level"]
+    is_complete_game = progression["is_complete_game"]
+    hard_level = progression["hard_level"]
+
+    damage_level = economy["damage_level"]
+    bullet_speed_level = economy["bullet_speed_level"]
+    live_level = economy["live_level"]
+
+    damage_level_need_coin = damage_level * 1234
+    bullet_speed_level_need_coin = bullet_speed_level * 321
+    live_level_need_coin = live_level * 5432
+
+    max_lives = 10 + live_level
+    BULLET_SPEED = 20 + bullet_speed_level
+
+    player.coin = economy["coin"]
+    player.damage = 50 + damage_level
+    player.lives = max_lives
+    player.control = settings["control_mode"]
+
+    volume_level = settings["volume_level"]
+    pygame.mixer.music.set_volume(volume_level)
+
+
+def autosave():
+    save_manager.save_state(gather_save_state())
+
 
 def reset_game():
     for sprite in all_sprites:
@@ -342,6 +405,7 @@ def chose_level():
                             chose_level_running = False
                             player.out_of_game = False
                             reset_continue_game()
+                            autosave()
                             break
                 if button_back.collidepoint((mx, my)):
                     chose_level_running = False
@@ -414,6 +478,7 @@ def chose_hard_level():
                             chose_hard_level_running = False
                             player.out_of_game = False
                             reset_continue_game()
+                            autosave()
                             break
                 if button_back.collidepoint((mx, my)):
                     chose_hard_level_running = False
@@ -899,6 +964,9 @@ texts = [
     'Go, you will be a hero.',
 ]
 
+apply_save_state(save_manager.load_state())
+atexit.register(autosave)
+
 display_opening_screen(texts)
 
 main_menu()
@@ -1037,10 +1105,12 @@ while running:
     if level > 15:
         all_levels_completed_screen()
         is_complete_game = True
-    
+        autosave()
+
     if score > 100 + (level * 10) * 9: # 100 + (level * 10) * 9
         action = stage_clear_screen(level, score)
         highest_unlocked_level = unlocked_level_after_clear(highest_unlocked_level, level)
+        autosave()
         if action == 'next':
             reset_enemies()
             level += 1
