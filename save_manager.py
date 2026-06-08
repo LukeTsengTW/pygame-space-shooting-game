@@ -17,6 +17,8 @@ DEFAULT_STATE = {
         "damage_level": 0,
         "bullet_speed_level": 0,
         "live_level": 0,
+        "sentry_gun_level": 0,
+        "tactical_support_level": 0,
     },
     "settings": {
         "volume_level": 0.5,

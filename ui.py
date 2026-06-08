@@ -160,22 +160,25 @@ def draw_button(
 
     draw_panel(surface, rect, fill=fill, border=border, alpha=238, cut=10)
     if subtitle:
+        subtitle_lines = str(subtitle).splitlines()
+        label_y = rect.centery - 18 if len(subtitle_lines) > 1 else rect.centery - 10
         draw_text(
             surface,
             label,
             21,
             text_color,
-            (rect.left + 18, rect.centery - 10),
+            (rect.left + 18, label_y),
             anchor="midleft",
         )
-        draw_text(
-            surface,
-            subtitle,
-            14,
-            COLORS["muted"] if not disabled else COLORS["locked_text"],
-            (rect.left + 18, rect.centery + 15),
-            anchor="midleft",
-        )
+        for index, subtitle_line in enumerate(subtitle_lines):
+            draw_text(
+                surface,
+                subtitle_line,
+                14,
+                COLORS["muted"] if not disabled else COLORS["locked_text"],
+                (rect.left + 18, rect.centery + 10 + index * 18),
+                anchor="midleft",
+            )
     else:
         draw_text(surface, label, 22, text_color, rect.center)
     return rect

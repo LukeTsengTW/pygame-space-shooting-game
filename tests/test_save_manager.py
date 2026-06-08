@@ -37,6 +37,8 @@ def test_partial_file_merges_over_defaults(tmp_path):
     assert state["progression"]["highest_unlocked_level"] == 7
     assert state["progression"]["hard_level"] == 1  # defaulted
     assert state["economy"]["coin"] == 0  # whole section defaulted
+    assert state["economy"]["sentry_gun_level"] == 0
+    assert state["economy"]["tactical_support_level"] == 0
 
 
 def test_wrong_types_fall_back_to_defaults(tmp_path):
@@ -53,6 +55,8 @@ def test_save_then_load_round_trips(tmp_path):
     state["progression"]["is_complete_game"] = True
     state["economy"]["coin"] = 12345
     state["economy"]["damage_level"] = 4
+    state["economy"]["sentry_gun_level"] = 2
+    state["economy"]["tactical_support_level"] = 1
     state["settings"]["volume_level"] = 0.8
     assert save_manager.save_state(state, path) is True
     assert save_manager.load_state(path) == state

@@ -4,6 +4,7 @@ import random
 from itertools import chain
 
 import save_manager
+import support_upgrades
 from background import ScrollingBackground
 from boss_health import BossHealthDisplayState
 from config import *
@@ -17,6 +18,7 @@ from opening_skip import (
     is_opening_skip_input,
 )
 from player import Player
+from sentry import SentryGun
 from shared import enemy_bullets, enemies, all_sprites, bullets
 from ui import (
     COLORS,
@@ -51,6 +53,11 @@ bullet_speed_level = 0
 bullet_speed_level_need_coin = 0
 live_level = 0
 live_level_need_coin = 0
+sentry_gun_level = 0
+tactical_support_level = 0
+tactical_support_last_trigger_time = -999_999_999
+tactical_support_effect_until = 0
+tactical_support_banner_until = 0
 
 pygame.init()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -73,7 +80,36 @@ running = True
 
 player = Player()
 all_sprites.add(player)
+sentry_guns = pygame.sprite.Group()
 boss_health_display = BossHealthDisplayState()
+
+ENEMY_REWARD_CONFIG = (
+    ('enemies_1', 2, Explosion_1, 10),
+    ('enemies_2', 3, Explosion_2, 20),
+    ('enemies_3', 4, Explosion_3, 30),
+    ('enemies_4', 5, Explosion_4, 40),
+    ('enemies_5', 200, Explosion_5, 10000),
+    ('enemies_6', 6, Explosion_6, 50),
+    ('enemies_7', 7, Explosion_7, 60),
+    ('enemies_8', 8, Explosion_8, 70),
+    ('enemies_9', 9, Explosion_9, 80),
+    ('enemies_10', 10, Explosion_10, 90),
+    ('enemies_11', 600, Explosion_11, 50000),
+    ('enemies_12', 11, Explosion_12, 100),
+    ('enemies_13', 12, Explosion_13, 110),
+    ('enemies_14', 13, Explosion_14, 120),
+    ('enemies_15', 14, Explosion_15, 130),
+    ('enemies_16', 15, Explosion_16, 140),
+    ('enemies_17', 16, Explosion_17, 150),
+    ('enemies_18', 1000, Explosion_18, 100000),
+)
+TACTICAL_SUPPORT_TARGET_KEYS = support_upgrades.tactical_support_target_keys(
+    tuple(row[0] for row in ENEMY_REWARD_CONFIG),
+    BOSS_GROUP_KEYS,
+)
+TACTICAL_SUPPORT_REWARD_CONFIG = tuple(
+    row for row in ENEMY_REWARD_CONFIG if row[0] in TACTICAL_SUPPORT_TARGET_KEYS
+)
 
 def draw_text(text, font, color, surface, x, y):
     text_obj = font.render(text, 1, color)
@@ -94,6 +130,8 @@ def gather_save_state():
             "damage_level": damage_level,
             "bullet_speed_level": bullet_speed_level,
             "live_level": live_level,
+            "sentry_gun_level": sentry_gun_level,
+            "tactical_support_level": tactical_support_level,
         },
         "settings": {
             "volume_level": volume_level,
@@ -104,7 +142,7 @@ def gather_save_state():
 
 def apply_save_state(data):
     global highest_unlocked_level, hard_level, is_complete_game
-    global damage_level, bullet_speed_level, live_level
+    global damage_level, bullet_speed_level, live_level, sentry_gun_level, tactical_support_level
     global damage_level_need_coin, bullet_speed_level_need_coin, live_level_need_coin
     global max_lives, BULLET_SPEED, volume_level
 
@@ -119,6 +157,8 @@ def apply_save_state(data):
     damage_level = economy["damage_level"]
     bullet_speed_level = economy["bullet_speed_level"]
     live_level = economy["live_level"]
+    sentry_gun_level = economy["sentry_gun_level"]
+    tactical_support_level = economy["tactical_support_level"]
 
     damage_level_need_coin = damage_level * 1234
     bullet_speed_level_need_coin = bullet_speed_level * 321
@@ -141,28 +181,67 @@ def autosave():
 
 
 def reset_game():
+    global score, level, level_start_time
+
     for sprite in all_sprites:
         sprite.kill()
 
     all_sprites.add(player)
     player.lives = max_lives
-    global score, level, level_start_time
+    spawn_sentry_guns()
+    reset_tactical_support_cooldown()
     score, level = 0, 1
     level_start_time = pygame.time.get_ticks()
 
 def reset_continue_game():
+    global score, level_start_time
+
     for sprite in all_sprites:
         sprite.kill()
 
     all_sprites.add(player)
     player.lives = max_lives
-    global score, level_start_time
+    spawn_sentry_guns()
+    reset_tactical_support_cooldown()
     score = 0
     level_start_time = pygame.time.get_ticks()
 
     BOSS_GENERATION_ONCE['enemies_5'] = False
     BOSS_GENERATION_ONCE['enemies_11'] = False
     BOSS_GENERATION_ONCE['enemies_18'] = False
+
+
+def spawn_sentry_guns():
+    for sentry in sentry_guns:
+        sentry.kill()
+
+    stats = support_upgrades.sentry_gun_stats(sentry_gun_level)
+    if not stats["active"]:
+        return
+
+    for index in range(stats["count"]):
+        sentry = SentryGun(
+            index,
+            stats["count"],
+            stats["lives"],
+            stats["damage"],
+            stats["bullet_speed"],
+            stats["shot_interval_ms"],
+        )
+        sentry_guns.add(sentry)
+        all_sprites.add(sentry)
+
+
+def reset_tactical_support_cooldown():
+    global tactical_support_last_trigger_time, tactical_support_effect_until, tactical_support_banner_until
+    stats = support_upgrades.tactical_support_stats(tactical_support_level)
+    now = pygame.time.get_ticks()
+    tactical_support_last_trigger_time = support_upgrades.reset_tactical_support_cooldown(
+        now,
+        stats["cooldown_ms"],
+    )
+    tactical_support_effect_until = 0
+    tactical_support_banner_until = 0
 
 current_text = 0 
 def setting():
@@ -235,9 +314,124 @@ def setting():
         pygame.display.update()
         clock.tick(60)
 
+
+def clamp(value, minimum, maximum):
+    return max(minimum, min(maximum, value))
+
+
+def get_upgrade_rows():
+    sentry_cost = support_upgrades.next_upgrade_cost(
+        support_upgrades.SENTRY_GUN_BASE_COST,
+        sentry_gun_level,
+    )
+    tactical_cost = support_upgrades.next_upgrade_cost(
+        support_upgrades.TACTICAL_SUPPORT_BASE_COST,
+        tactical_support_level,
+    )
+    sentry_stats = support_upgrades.sentry_gun_stats(max(1, sentry_gun_level))
+    tactical_stats = support_upgrades.tactical_support_stats(max(1, tactical_support_level))
+    return (
+        {
+            "key": "damage",
+            "label": "WEAPON DAMAGE",
+            "level": damage_level,
+            "cost": damage_level_need_coin,
+            "subtitle": f"COST {damage_level_need_coin:,} COINS\nCURRENT DMG {player.damage}  /  +1 DAMAGE",
+        },
+        {
+            "key": "bullet_speed",
+            "label": "PROJECTILE SPEED",
+            "level": bullet_speed_level,
+            "cost": bullet_speed_level_need_coin,
+            "subtitle": f"COST {bullet_speed_level_need_coin:,} COINS\nCURRENT SPD {BULLET_SPEED}  /  +1 SPEED",
+        },
+        {
+            "key": "lives",
+            "label": "HULL CAPACITY",
+            "level": live_level,
+            "cost": live_level_need_coin,
+            "subtitle": f"COST {live_level_need_coin:,} COINS  /  +1 LIFE",
+        },
+        {
+            "key": "sentry",
+            "label": "SENTRY GUN",
+            "level": sentry_gun_level,
+            "cost": sentry_cost,
+            "subtitle": (
+                f"COST {sentry_cost:,} COINS\n"
+                f"{sentry_stats['count']} UNIT  {sentry_stats['lives']} LIVES  "
+                f"{sentry_stats['damage']} DMG  SPD {sentry_stats['bullet_speed']}  "
+                f"INT {sentry_stats['shot_interval_ms']}MS"
+            ),
+        },
+        {
+            "key": "tactical",
+            "label": "TACTICAL SUPPORT",
+            "level": tactical_support_level,
+            "cost": tactical_cost,
+            "subtitle": (
+                f"COST {tactical_cost:,} COINS  /  "
+                f"HP <= {round(tactical_stats['trigger_ratio'] * 100)}%  CD {tactical_stats['cooldown_ms'] // 1000}s"
+            ),
+        },
+    )
+
+
+def draw_vertical_scrollbar(surface, track_rect, scroll_offset, max_scroll):
+    if max_scroll <= 0:
+        return
+
+    track_rect = pygame.Rect(track_rect)
+    pygame.draw.rect(surface, COLORS["track"], track_rect, border_radius=track_rect.width // 2)
+    thumb_height = max(46, round(track_rect.height * track_rect.height / (track_rect.height + max_scroll)))
+    travel = track_rect.height - thumb_height
+    thumb_y = track_rect.y + round((scroll_offset / max_scroll) * travel)
+    thumb_rect = pygame.Rect(track_rect.x, thumb_y, track_rect.width, thumb_height)
+    pygame.draw.rect(surface, COLORS["cyan"], thumb_rect, border_radius=track_rect.width // 2)
+
+
+def buy_upgrade(upgrade_key):
+    global BULLET_SPEED, max_lives
+    global damage_level, bullet_speed_level, live_level
+    global damage_level_need_coin, bullet_speed_level_need_coin, live_level_need_coin
+    global sentry_gun_level, tactical_support_level
+
+    rows = {row["key"]: row for row in get_upgrade_rows()}
+    row = rows[upgrade_key]
+    if player.coin < row["cost"]:
+        return False
+
+    player.coin -= row["cost"]
+    if upgrade_key == "damage":
+        player.damage += 1
+        damage_level += 1
+        damage_level_need_coin = damage_level * 1234
+    elif upgrade_key == "bullet_speed":
+        BULLET_SPEED += 1
+        bullet_speed_level += 1
+        bullet_speed_level_need_coin = bullet_speed_level * 321
+    elif upgrade_key == "lives":
+        max_lives += 1
+        live_level += 1
+        live_level_need_coin = live_level * 5432
+    elif upgrade_key == "sentry":
+        sentry_gun_level += 1
+        if not player.out_of_game:
+            spawn_sentry_guns()
+    elif upgrade_key == "tactical":
+        tactical_support_level += 1
+
+    autosave()
+    return True
+
+
 def upgrade_UI():
-    global BULLET_SPEED, max_lives, damage_level, bullet_speed_level, live_level, damage_level_need_coin, bullet_speed_level_need_coin, live_level_need_coin
     upgrade_UI_running = True
+    scroll_offset = 0
+    row_height = 124
+    viewport_rect = pygame.Rect(58, 165, 484, 510)
+    scrollbar_rect = pygame.Rect(548, viewport_rect.y, 8, viewport_rect.height)
+    back_button = pygame.Rect(180, 715, 240, 58)
 
     upgrade_background = ScrollingBackground(
         pygame.image.load('img/background/upgrade_background.jpg'),
@@ -249,11 +443,10 @@ def upgrade_UI():
         upgrade_background.draw(screen)
 
         mx, my = pygame.mouse.get_pos()
-
-        button_1 = pygame.Rect(75, 195, 450, 112)
-        button_2 = pygame.Rect(75, 335, 450, 112)
-        button_3 = pygame.Rect(75, 475, 450, 112)
-        button_4 = pygame.Rect(180, 705, 240, 58)
+        upgrade_rows = get_upgrade_rows()
+        content_height = len(upgrade_rows) * row_height
+        max_scroll = max(0, content_height - viewport_rect.height)
+        scroll_offset = clamp(scroll_offset, 0, max_scroll)
 
         draw_panel(screen, pygame.Rect(45, 135, 510, 660), alpha=232)
         draw_heading(screen, 'Upgrade', 'SHIP SYSTEM ENHANCEMENT', y=76)
@@ -265,57 +458,52 @@ def upgrade_UI():
             accent=COLORS['gold'],
         )
 
-        upgrade_rows = (
-            (button_1, 'WEAPON DAMAGE', damage_level, damage_level_need_coin),
-            (button_2, 'PROJECTILE SPEED', bullet_speed_level, bullet_speed_level_need_coin),
-            (button_3, 'HULL CAPACITY', live_level, live_level_need_coin),
-        )
-        for button, label, upgrade_level, cost in upgrade_rows:
-            affordable = player.coin >= cost
+        row_buttons = []
+        previous_clip = screen.get_clip()
+        screen.set_clip(viewport_rect)
+        for index, row in enumerate(upgrade_rows):
+            button = pygame.Rect(75, viewport_rect.y + index * row_height - scroll_offset, 450, 104)
+            row_buttons.append((button, row))
+            if not button.colliderect(viewport_rect):
+                continue
+
+            affordable = player.coin >= row["cost"]
             draw_button(
                 screen,
                 button,
-                f'{label}  /  LV.{upgrade_level}',
+                f'{row["label"]}  /  LV.{row["level"]}',
                 hovered=button.collidepoint((mx, my)) and affordable,
                 style='primary' if affordable else 'locked',
                 disabled=not affordable,
-                subtitle=f'COST  {cost:,} COINS',
+                subtitle=row["subtitle"],
             )
+        screen.set_clip(previous_clip)
+        draw_vertical_scrollbar(screen, scrollbar_rect, scroll_offset, max_scroll)
 
         draw_button(
             screen,
-            button_4,
+            back_button,
             'BACK TO MENU',
-            hovered=button_4.collidepoint((mx, my)),
+            hovered=back_button.collidepoint((mx, my)),
         )
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
+            if event.type == pygame.MOUSEWHEEL:
+                scroll_offset = clamp(scroll_offset - event.y * 44, 0, max_scroll)
             if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 4:
+                    scroll_offset = clamp(scroll_offset - 44, 0, max_scroll)
+                if event.button == 5:
+                    scroll_offset = clamp(scroll_offset + 44, 0, max_scroll)
                 if event.button == 1:
-                    if button_1.collidepoint((mx, my)):
-                        if player.coin >= damage_level_need_coin:
-                            player.coin -= damage_level_need_coin
-                            player.damage += 1
-                            damage_level += 1
-                            damage_level_need_coin = damage_level * 1234
-                    if button_2.collidepoint((mx, my)):
-                        if player.coin >= bullet_speed_level_need_coin:
-                            player.coin -= bullet_speed_level_need_coin
-                            BULLET_SPEED += 1
-                            bullet_speed_level += 1
-                            bullet_speed_level_need_coin = bullet_speed_level * 321
-                            print("Bullet's speed is ", BULLET_SPEED, " now")
-                    if button_3.collidepoint((mx, my)):
-                        if player.coin >= live_level_need_coin:
-                            player.coin -= live_level_need_coin
-                            max_lives += 1
-                            live_level += 1
-                            live_level_need_coin = live_level * 5432
-                            print("max_lives is ", max_lives, " now")
-                    if button_4.collidepoint((mx, my)):
+                    for button, row in row_buttons:
+                        if viewport_rect.collidepoint((mx, my)) and button.collidepoint((mx, my)):
+                            buy_upgrade(row["key"])
+                            break
+                    if back_button.collidepoint((mx, my)):
                         upgrade_UI_running = False
 
         pygame.display.update()
@@ -757,7 +945,7 @@ def check_bullet_hit(bullets, enemies, score_increment, drop_rate_1, drop_rate_2
             all_sprites.add(hit_spark)
             bullet.kill()
             if not enemy.invincible:
-                enemy.hp -= player.damage
+                enemy.hp -= getattr(bullet, "damage", player.damage)
                 if enemy.hp <= 0:
                     boom_sound_effect.play()
                     player.coin += gain_coin
@@ -775,6 +963,100 @@ def check_bullet_hit(bullets, enemies, score_increment, drop_rate_1, drop_rate_2
                             item2 = Item_2(enemy.rect.center)
                             items['item_2'].add(item2)
                             all_sprites.add(item2)
+
+
+def destroy_enemy_for_reward(enemy, score_increment, Explosion, gain_coin):
+    global score
+    if getattr(enemy, "hp", 1) <= 0:
+        return
+
+    boom_sound_effect.play()
+    player.coin += gain_coin
+    score += score_increment
+    explosion = Explosion(enemy.rect.center)
+    all_sprites.add(explosion)
+    enemy.kill()
+
+
+def destroy_tactical_support_targets_for_reward():
+    destroyed = 0
+    for group_key, score_increment, Explosion, gain_coin in TACTICAL_SUPPORT_REWARD_CONFIG:
+        for enemy in enemies_p[group_key].sprites():
+            destroy_enemy_for_reward(enemy, score_increment, Explosion, gain_coin)
+            destroyed += 1
+    return destroyed
+
+
+def update_tactical_support():
+    global tactical_support_last_trigger_time, tactical_support_effect_until, tactical_support_banner_until
+    stats = support_upgrades.tactical_support_stats(tactical_support_level)
+    if not stats["active"] or max_lives <= 0:
+        return
+
+    now = pygame.time.get_ticks()
+    if support_upgrades.is_tactical_support_effect_active(now, tactical_support_effect_until):
+        destroy_tactical_support_targets_for_reward()
+        return
+
+    if not support_upgrades.is_tactical_support_ready(
+        now,
+        tactical_support_last_trigger_time,
+        stats["cooldown_ms"],
+    ):
+        return
+    if player.lives / max_lives > stats["trigger_ratio"]:
+        return
+
+    tactical_support_effect_until = support_upgrades.tactical_support_active_until(now)
+    tactical_support_last_trigger_time = now
+    tactical_support_banner_until = now + 1800
+    destroy_tactical_support_targets_for_reward()
+
+
+def draw_tactical_support_banner(surface):
+    if pygame.time.get_ticks() >= tactical_support_banner_until:
+        return
+
+    elapsed = tactical_support_banner_until - pygame.time.get_ticks()
+    pulse = 1.0 if (elapsed // 120) % 2 == 0 else 0.65
+    overlay = pygame.Surface((SCREEN_WIDTH, 118), pygame.SRCALPHA)
+    overlay.fill((5, 14, 28, 165))
+    surface.blit(overlay, (0, SCREEN_HEIGHT // 2 - 86))
+    draw_ui_text(
+        surface,
+        "TACTICAL SUPPORT",
+        42,
+        COLORS["gold"],
+        (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 42),
+    )
+    draw_ui_text(
+        surface,
+        "ORBITAL STRIKE AUTHORIZED",
+        17,
+        COLORS["cyan"] if pulse == 1.0 else COLORS["muted"],
+        (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 4),
+    )
+
+
+def update_sentry_damage(enemy_groups):
+    now = pygame.time.get_ticks()
+    for sentry in sentry_guns.sprites():
+        bullet_hits = pygame.sprite.spritecollide(sentry, enemy_bullets, True)
+        if bullet_hits and sentry.take_damage(len(bullet_hits) * (level // 5 + 1), now):
+            explode_sentry(sentry)
+            continue
+
+        for group, damage in enemy_groups:
+            if pygame.sprite.spritecollideany(sentry, group):
+                if sentry.take_damage(damage, now):
+                    explode_sentry(sentry)
+                break
+
+
+def explode_sentry(sentry):
+    explosion = Explosion_1(sentry.rect.center)
+    all_sprites.add(explosion)
+    sentry.kill()
 
 def item_collision(player, item_type):
     hit_items = pygame.sprite.spritecollide(player, items[item_type], True)
@@ -1038,24 +1320,16 @@ while running:
     for enemy_bullet in enemy_bullets:
         screen.blit(enemy_bullet.surf, enemy_bullet.rect)
     
-    check_bullet_hit(bullets, enemies_p['enemies_1'], 2, 0.03, 0.01, Explosion_1, 10)
-    check_bullet_hit(bullets, enemies_p['enemies_2'], 3, 0.03, 0.01, Explosion_2, 20)
-    check_bullet_hit(bullets, enemies_p['enemies_3'], 4, 0.03, 0.01, Explosion_3, 30)
-    check_bullet_hit(bullets, enemies_p['enemies_4'], 5, 0.03, 0.01, Explosion_4, 40)
-    check_bullet_hit(bullets, enemies_p['enemies_5'], 200, 0.03, 0.01, Explosion_5, 10000)
-    check_bullet_hit(bullets, enemies_p['enemies_6'], 6, 0.03, 0.01, Explosion_6, 50)
-    check_bullet_hit(bullets, enemies_p['enemies_7'], 7, 0.03, 0.01, Explosion_7, 60)
-    check_bullet_hit(bullets, enemies_p['enemies_8'], 8, 0.03, 0.01, Explosion_8, 70)
-    check_bullet_hit(bullets, enemies_p['enemies_9'], 9, 0.03, 0.01, Explosion_9, 80)
-    check_bullet_hit(bullets, enemies_p['enemies_10'], 10, 0.03, 0.01, Explosion_10, 90)
-    check_bullet_hit(bullets, enemies_p['enemies_11'], 600, 0.03, 0.01, Explosion_11, 50000)
-    check_bullet_hit(bullets, enemies_p['enemies_12'], 11, 0.03, 0.01, Explosion_12, 100)
-    check_bullet_hit(bullets, enemies_p['enemies_13'], 12, 0.03, 0.01, Explosion_13, 110)
-    check_bullet_hit(bullets, enemies_p['enemies_14'], 13, 0.03, 0.01, Explosion_14, 120)
-    check_bullet_hit(bullets, enemies_p['enemies_15'], 14, 0.03, 0.01, Explosion_15, 130)
-    check_bullet_hit(bullets, enemies_p['enemies_16'], 15, 0.03, 0.01, Explosion_16, 140)
-    check_bullet_hit(bullets, enemies_p['enemies_17'], 16, 0.03, 0.01, Explosion_17, 150)
-    check_bullet_hit(bullets, enemies_p['enemies_18'], 1000, 0.03, 0.01, Explosion_18, 100000)
+    for group_key, score_increment, Explosion, gain_coin in ENEMY_REWARD_CONFIG:
+        check_bullet_hit(
+            bullets,
+            enemies_p[group_key],
+            score_increment,
+            0.03,
+            0.01,
+            Explosion,
+            gain_coin,
+        )
 
     for item_type in items.keys():
         item_collision(player, item_type)
@@ -1095,11 +1369,15 @@ while running:
             player.invincible = True 
             player.last_hit_time = pygame.time.get_ticks() 
 
+    update_sentry_damage(enemy_groups)
+
     if player.invincible and pygame.time.get_ticks() - player.last_hit_time > 3000:
         player.invincible = False
 
     if player.invincible_shield and pygame.time.get_ticks() - player.shield_start_time > 5000:
         player.invincible_shield = False
+
+    update_tactical_support()
 
     if player.lives <= 0:
         game_over_screen()
@@ -1119,6 +1397,8 @@ while running:
             score = 0
             player.rect.center = (SCREEN_WIDTH/2, SCREEN_HEIGHT-30)
             player.lives = max_lives
+            spawn_sentry_guns()
+            reset_tactical_support_cooldown()
             level_start_time = pygame.time.get_ticks()
         elif action == 'menu':
             main_menu()
@@ -1128,12 +1408,16 @@ while running:
             score = 0
             player.rect.center = (SCREEN_WIDTH/2, SCREEN_HEIGHT-30)
             player.lives = max_lives
+            spawn_sentry_guns()
+            reset_tactical_support_cooldown()
             level_start_time = pygame.time.get_ticks() 
         elif action == 'restart':
             reset_enemies()
             score = 0
             player.rect.center = (SCREEN_WIDTH/2, SCREEN_HEIGHT-30)
             player.lives = max_lives
+            spawn_sentry_guns()
+            reset_tactical_support_cooldown()
             level_start_time = pygame.time.get_ticks() 
 
     for entity in all_sprites:
@@ -1148,6 +1432,7 @@ while running:
                 screen.blit(entity.shield_surf, entity.shield_rect)
 
     draw_gameplay_hud(screen, level, score, player.lives, player.coin)
+    draw_tactical_support_banner(screen)
     active_boss = get_active_boss()
     boss_health = boss_health_display.update(active_boss, pygame.time.get_ticks())
     if boss_health:
