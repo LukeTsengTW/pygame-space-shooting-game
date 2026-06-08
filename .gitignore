@@ -42,3 +42,10 @@ Desktop.ini
 *.log
 *.tmp
 *.temp
+
+# Game save files (cwd fallback when %APPDATA% is unset; see save_manager.resolve_save_path)
+savegame.json
+
+# Local tooling / agent artifacts
+.claude/settings.local.json
+.code-review-graph/
